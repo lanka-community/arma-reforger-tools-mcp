@@ -1,6 +1,8 @@
-//! The list of every file in the .pak archives of the game and of the downloaded Workshop mods.
+//! The list of every file in the .pak archives of the game and of the downloaded Workshop mods,
+//! and of every file of Bohemia's sample mods in the server program.
 
 use std::collections::HashSet;
+use std::fmt;
 use std::fs::{self, File};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -15,15 +17,12 @@ use crate::host_path::host_path;
 use crate::mod_folder::ModFolder;
 use crate::workbench_documents::DOCUMENTS_SETTING;
 
-/// The name of the first source: the game itself.
-const GAME: &str = "game";
-
-/// Every Game file, with the names of the sources and notes about what was not searched.
+/// Every Game file, with its sources and notes about what was not searched.
 pub(super) struct Index {
     pub(super) files: Vec<GameFile>,
 
-    /// `GAME` first, then the name of each mod.
-    pub(super) sources: Vec<String>,
+    /// `Source::Game` first, then each mod, then each sample mod.
+    pub(super) sources: Vec<Source>,
 
     /// Each line says what the search did not cover and how to fix it.
     pub(super) notes: Vec<String>,
@@ -82,29 +81,80 @@ impl ModsOnDisk {
     }
 }
 
-/// One file in a .pak archive.
+/// Where a Game file comes from.
+pub(super) enum Source {
+    /// The installed game.
+    Game,
+    /// A downloaded Workshop mod, with its name, for example `tvtLobby`.
+    Mod(String),
+    /// A sample mod of Bohemia, with its folder name, for example `SampleMod_NewWeapon`.
+    Sample(String),
+}
+
+impl Source {
+    /// Whether the user named this source with `wanted`: `game`, `tvtLobby`, `mod tvtLobby`,
+    /// `SampleMod_NewWeapon`, or `sample SampleMod_NewWeapon`. Capital letters do not matter.
+    pub(super) fn is(&self, wanted: &str) -> bool {
+        let wanted = wanted.trim();
+        match self {
+            Self::Game => wanted.eq_ignore_ascii_case("game"),
+            Self::Mod(name) | Self::Sample(name) => {
+                wanted.eq_ignore_ascii_case(name) || wanted.eq_ignore_ascii_case(&self.to_string())
+            }
+        }
+    }
+}
+
+impl fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Game => f.write_str("game"),
+            Self::Mod(name) => write!(f, "mod {name}"),
+            Self::Sample(name) => write!(f, "sample {name}"),
+        }
+    }
+}
+
+/// One Game file.
 pub(super) struct GameFile {
     pub(super) path: String,
 
     /// The position of its source in `Index::sources`.
     pub(super) source: usize,
 
-    /// The .pak file that holds it.
-    pub(super) pak: Arc<Path>,
+    pub(super) holder: Holder,
+}
 
-    data: FileData,
+/// What holds the content of a Game file.
+pub(super) enum Holder {
+    /// A .pak file on disk, at a position in it.
+    Pak { pak: Arc<Path>, data: FileData },
+    /// The server program: `build.rs` put the file into it.
+    Program(&'static [u8]),
 }
 
 impl GameFile {
-    /// Reads its full content from its .pak file.
+    /// Reads its full content, from its .pak file or from the server program.
     pub(super) fn read(&self) -> Result<Vec<u8>> {
-        read_file(&mut File::open(&self.pak)?, self.data)
+        match &self.holder {
+            Holder::Pak { pak, data } => read_file(&mut File::open(pak)?, *data),
+            Holder::Program(bytes) => Ok(bytes.to_vec()),
+        }
+    }
+
+    /// The .pak file that holds it, or `None` for a file in the server program.
+    pub(super) fn pak(&self) -> Option<&Path> {
+        match &self.holder {
+            Holder::Pak { pak, .. } => Some(pak),
+            Holder::Program(_) => None,
+        }
     }
 }
 
-/// Reads the file lists of all .pak archives of the game and of the mods. It fails when the game
-/// folder is not set or has no .pak files. A damaged .pak file or a missing mods folder becomes a
-/// note. It checks `cancel` before each .pak file.
+/// Reads the file lists of all .pak archives of the game and of the mods, and adds the files of
+/// the sample mods in `settings`. It fails when the game folder is not set or has no .pak files.
+/// A damaged .pak file or a missing mods folder becomes a note. It checks `cancel` before each
+/// .pak file.
 pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<Index> {
     let raw_game = settings.game.as_deref().ok_or(Error::GamePathNotSet)?;
     let game_folder = host_path(raw_game);
@@ -118,7 +168,7 @@ pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<I
     }
     let mut index = Index {
         files: Vec::new(),
-        sources: vec![GAME.to_owned()],
+        sources: vec![Source::Game],
         notes: Vec::new(),
         mods: ModsOnDisk(Vec::new()),
     };
@@ -131,10 +181,11 @@ pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<I
             continue;
         }
         let paks: Vec<PathBuf> = paks.iter().map(|pak| pak.path.clone()).collect();
-        index.sources.push(mod_name(folder));
+        index.sources.push(Source::Mod(mod_name(folder)));
         index.add(index.sources.len() - 1, &paks, cancel)?;
     }
     index.mods = mods;
+    index.add_samples(settings.samples);
     Ok(index)
 }
 
@@ -158,11 +209,11 @@ fn mod_folders(settings: &Settings) -> ModFolders {
     match settings.profile.as_deref() {
         None if !has_documents => notes.push(format!(
             "{DOCUMENTS_SETTING} is not set and the Tool found no Workbench folder in Documents, \
-             so the search covered the game only. To also search the Workshop mods that Workbench \
-             downloaded, set {DOCUMENTS_SETTING} to the Workbench folder in Documents, for example \
-             \"C:\\Users\\<you>\\Documents\\My Games\\ArmaReforgerWorkbench\". To also search \
-             another folder of Workshop mods, for example \"D:\\DownloadedMods\", set \
-             {PROFILE_SETTING} to it."
+             so the search covered no downloaded Workshop mods. To also search the Workshop mods \
+             that Workbench downloaded, set {DOCUMENTS_SETTING} to the Workbench folder in \
+             Documents, for example \"C:\\Users\\<you>\\Documents\\My Games\\ArmaReforgerWorkbench\". \
+             To also search another folder of Workshop mods, for example \"D:\\DownloadedMods\", \
+             set {PROFILE_SETTING} to it."
         )),
         None => {}
         Some(raw_profile) => {
@@ -178,7 +229,7 @@ fn mod_folders(settings: &Settings) -> ModFolders {
                 let covered = if has_documents {
                     "the search did not cover its mods"
                 } else {
-                    "the search covered the game only"
+                    "the search covered no downloaded Workshop mods"
                 };
                 notes.push(format!(
                     "{PROFILE_SETTING} is \"{raw_profile}\", but {} is not a folder, so \
@@ -194,21 +245,75 @@ fn mod_folders(settings: &Settings) -> ModFolders {
 }
 
 impl Index {
-    /// Where `file` comes from: "game", or "mod tvtLobby".
+    /// Where `file` comes from: `game`, `mod tvtLobby`, or `sample SampleMod_NewWeapon`.
     pub(super) fn source_of(&self, file: &GameFile) -> String {
-        match self.sources.get(file.source) {
-            Some(name) if file.source > 0 => format!("mod {name}"),
-            _ => GAME.to_owned(),
+        self.sources
+            .get(file.source)
+            .map_or_else(|| Source::Game.to_string(), ToString::to_string)
+    }
+
+    /// Whether `file` comes from the source that the user named `wanted` (see `Source::is`).
+    pub(super) fn is_source(&self, file: &GameFile, wanted: &str) -> bool {
+        self.sources
+            .get(file.source)
+            .is_some_and(|source| source.is(wanted))
+    }
+
+    /// What the search covered: "the game", "the game and 2 mods (tvtLobby, Other)", or "the
+    /// game, 1 mod (tvtLobby), and 13 sample mods".
+    pub(super) fn searched(&self) -> String {
+        let mods: Vec<&str> = self
+            .sources
+            .iter()
+            .filter_map(|source| match source {
+                Source::Mod(name) => Some(name.as_str()),
+                _ => None,
+            })
+            .collect();
+        let samples = self
+            .sources
+            .iter()
+            .filter(|source| matches!(source, Source::Sample(_)))
+            .count();
+        let mut parts = vec!["the game".to_owned()];
+        match mods.len() {
+            0 => {}
+            1 => parts.push(format!("1 mod ({})", mods.join(", "))),
+            count => parts.push(format!("{count} mods ({})", mods.join(", "))),
+        }
+        match samples {
+            0 => {}
+            1 => parts.push("1 sample mod".to_owned()),
+            count => parts.push(format!("{count} sample mods")),
+        }
+        match parts.as_slice() {
+            [last] => last.clone(),
+            [first, last] => format!("{first} and {last}"),
+            [rest @ .., last] => format!("{}, and {last}", rest.join(", ")),
+            [] => String::new(),
         }
     }
 
-    /// What the search covered: "the game", or "the game and 2 mods (tvtLobby, Other)".
-    pub(super) fn searched(&self) -> String {
-        let mods = self.sources.get(1..).unwrap_or_default();
-        match mods.len() {
-            0 => "the game".to_owned(),
-            1 => format!("the game and 1 mod ({})", mods.join(", ")),
-            count => format!("the game and {count} mods ({})", mods.join(", ")),
+    /// Adds the files of the sample mods. Each path is `<sample mod folder>/<path in the mod>`,
+    /// and the folder name becomes the source. A path without a folder is skipped.
+    fn add_samples(&mut self, samples: &[(&str, &'static [u8])]) {
+        for &(path, bytes) in samples {
+            let Some((name, path)) = path.split_once('/') else {
+                continue;
+            };
+            let known = self
+                .sources
+                .iter()
+                .position(|source| matches!(source, Source::Sample(known) if known == name));
+            let source = known.unwrap_or_else(|| {
+                self.sources.push(Source::Sample(name.to_owned()));
+                self.sources.len() - 1
+            });
+            self.files.push(GameFile {
+                path: path.to_owned(),
+                source,
+                holder: Holder::Program(bytes),
+            });
         }
     }
 
@@ -225,8 +330,10 @@ impl Index {
                         .extend(files.into_iter().map(|PakFile { path, data }| GameFile {
                             path,
                             source,
-                            pak: Arc::clone(&pak),
-                            data,
+                            holder: Holder::Pak {
+                                pak: Arc::clone(&pak),
+                                data,
+                            },
                         }));
                 }
                 Err(error) => self.notes.push(format!(

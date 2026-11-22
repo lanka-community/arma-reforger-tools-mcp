@@ -32,8 +32,8 @@ async fn finds_the_script_of_a_class_by_a_part_of_its_name() {
              - scripts/Game/Plugins/Persistence/System/Serializers/Components/Character/\
              SCR_CharacterCameraHandlerComponentSerializer.c (game)\n\n\
              REFORGER_WORKBENCH_DOCUMENTS_PATH is not set and the Tool found no Workbench \
-             folder in Documents, so the search covered the game only. To also search the \
-             Workshop mods that Workbench downloaded, set REFORGER_WORKBENCH_DOCUMENTS_PATH"
+             folder in Documents, so the search covered no downloaded Workshop mods. To also \
+             search the Workshop mods that Workbench downloaded, set REFORGER_WORKBENCH_DOCUMENTS_PATH"
         ),
         "{}",
         answer.text
@@ -175,7 +175,7 @@ async fn names_the_profile_setting_when_it_has_no_addons_folder() {
     assert!(
         answer.text.contains(&format!(
             "REFORGER_WORKBENCH_PROFILE_PATH is \"{}\", but {} is not a folder, so the search \
-             covered the game only. Set it to a folder of Workshop mods that holds addons",
+             covered no downloaded Workshop mods. Set it to a folder of Workshop mods that holds addons",
             profile.display(),
             profile.join("addons").display()
         )),
@@ -389,4 +389,47 @@ async fn finds_the_camera_handler_script_in_the_installed_game_by_a_windows_and_
             answer.text
         );
     }
+}
+
+#[tokio::test]
+async fn finds_the_files_of_a_sample_mod_with_the_sample_mod_as_the_source() {
+    // -- Setup & Fixtures
+    let test = "finds_the_files_of_a_sample_mod_with_the_sample_mod_as_the_source";
+    let game = game_folder(test, CAMERA_FILES);
+    let settings = Settings {
+        samples: SAMPLE_FILES,
+        ..settings(&game, None)
+    };
+
+    // -- Exec
+    let answer = find_in(settings, json!({ "query": "SampleWeapon_01" })).await;
+
+    // -- Check
+    assert!(!answer.is_error, "{}", answer.text);
+    let first = answer.text.lines().nth(1).unwrap_or_default();
+    assert_eq!(
+        first,
+        "- Prefabs/Weapons/Rifles/SampleWeapon_01.et (sample SampleMod_NewWeapon)"
+    );
+}
+
+#[tokio::test]
+async fn names_the_sample_mods_in_what_it_searched() {
+    // -- Setup & Fixtures
+    let test = "names_the_sample_mods_in_what_it_searched";
+    let game = game_folder(test, CAMERA_FILES);
+    let settings = Settings {
+        samples: SAMPLE_FILES,
+        ..settings(&game, None)
+    };
+
+    // -- Exec
+    let answer = find_in(settings, json!({ "query": "Helicopter_Nothing" })).await;
+
+    // -- Check
+    let searched = format!(
+        "Searched {} files in the game and 13 sample mods.",
+        CAMERA_FILES.len() + SAMPLE_FILES.len()
+    );
+    assert!(answer.text.contains(&searched), "{}", answer.text);
 }

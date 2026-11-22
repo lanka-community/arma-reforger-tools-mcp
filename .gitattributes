@@ -1,3 +1,6 @@
 # cargo xtask import writes the Knowledge base (ADR-0005). check-size skips generated files.
 src/wiki/pages/** linguist-generated=true
 src/api-docs/classes.jsonl linguist-generated=true
+# cargo xtask import --samples copies the sample mods of Bohemia. -text keeps their bytes, also
+# the CRLF line ends, the same as in the source repo.
+src/game-files/samples/** linguist-generated=true -text

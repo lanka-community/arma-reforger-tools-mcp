@@ -30,12 +30,13 @@ pub(super) fn router<S: Send + Sync + 'static>(settings: Settings) -> ToolRouter
     let game_find = Tool::new(
         "game_find",
         "Find Game files, the files inside the .pak archives of the installed game and of the \
-         Workshop mods that Workbench downloaded, by a part of their name or path, or by a class \
-         name, for example \"CharacterCameraHandler\" or \"SCR_PreGameGameModeStateComponent\". \
-         Returns the real paths, best match first: the full file name, then names that start \
-         with the query, then names and paths that have it inside. Each path says if it comes \
-         from the game or from which mod. If no file matches, the answer says how many files it \
-         searched. The first call reads the file lists, which takes about a second.",
+         Workshop mods that Workbench downloaded, and the files of Bohemia's sample mods, by a \
+         part of their name or path, or by a class name, for example \"CharacterCameraHandler\" \
+         or \"SCR_PreGameGameModeStateComponent\". Returns the real paths, best match first: the \
+         full file name, then names that start with the query, then names and paths that have \
+         it inside. Each path says if it comes from the game, from which mod, or from which \
+         sample mod. If no file matches, the answer says how many files it searched. The first \
+         call reads the file lists, which takes about a second.",
         schema_for_type::<FindInput>(),
     )
     .with_title("Find Game files")
@@ -43,11 +44,11 @@ pub(super) fn router<S: Send + Sync + 'static>(settings: Settings) -> ToolRouter
     let game_read = Tool::new(
         "game_read",
         "Open one Game file, a file inside the .pak archives of the installed game or of a \
-         Workshop mod that Workbench downloaded, by its path, and return its full text: a script \
-         (.c), a Prefab (.et), a config (.conf), or a layout (.layout). Capital letters in the \
-         path do not matter. If no file has the path, the answer lists the closest real paths, \
-         so a full path can be opened directly. To find a path by a part of its name, call \
-         game_find first.",
+         Workshop mod that Workbench downloaded, or a file of one of Bohemia's sample mods, by \
+         its path, and return its full text: a script (.c), a Prefab (.et), a config (.conf), or \
+         a layout (.layout). Capital letters in the path do not matter. If no file has the path, \
+         the answer lists the closest real paths, so a full path can be opened directly. To find \
+         a path by a part of its name, call game_find first.",
         schema_for_type::<ReadInput>(),
     )
     .with_title("Open a Game file")
@@ -78,7 +79,7 @@ pub(super) fn router<S: Send + Sync + 'static>(settings: Settings) -> ToolRouter
 
 // region:    --- Support
 
-/// Answers one `game_read` call. It reads the .pak file outside the server thread.
+/// Answers one `game_read` call. It reads the file outside the server thread.
 async fn read_answer(files: &Files, input: ReadInput, cancel: CancellationToken) -> Answer {
     let index = files
         .index(cancel)

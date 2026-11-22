@@ -5,6 +5,7 @@ use std::path::{Path, PathBuf};
 
 use crate::doxygen::{self, ApiFolder};
 use crate::knowledge::{self, PageFile};
+use crate::samples as sample_mods;
 use crate::wiki_export;
 use crate::wikitext;
 use crate::{Error, Result};
@@ -51,6 +52,11 @@ pub fn run() -> Result<()> {
         if written { "written" } else { "unchanged" }
     );
     Ok(())
+}
+
+/// Copies the text files of Bohemia's sample mods from the local clone `clone`.
+pub fn samples(clone: &Path) -> Result<()> {
+    sample_mods::import(&repo_root(), clone)
 }
 
 /// Prints the steps and the page list to save a new `export.xml` from the wiki. The wiki answers

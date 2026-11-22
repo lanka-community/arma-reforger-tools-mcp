@@ -30,8 +30,8 @@ claude plugin install reforger@reforger-local
 | `api_search`       | Finds classes and methods of the Enfusion and Arma Reforger script API, with signatures and parent classes.    |
 | `wiki_search`      | Finds wiki pages and engine pages by words, with the best Section of each.                                     |
 | `wiki_read`        | Returns one Arma Reforger wiki page or Enfusion engine page by its title, or one Section of it.                |
-| `game_find`        | Finds the scripts, Prefabs, and configs inside the `.pak` files of the game and of downloaded Workshop mods.   |
-| `game_read`        | Returns the full text of one file inside the `.pak` files of the game or of a downloaded Workshop mod.         |
+| `game_find`        | Finds the scripts, Prefabs, and configs of the game, of downloaded Workshop mods, and of Bohemia's sample mods. |
+| `game_read`        | Returns the full text of one file of the game, of a downloaded Workshop mod, or of a sample mod.                |
 | `workbench_status` | Checks the connection to a running Workbench, copies the Handler script into the open mod, and names that mod. |
 | `workbench_launch` | Starts Workbench with one of your mods open, finds it through Steam, and waits until the scripts are compiled. |
 | `reference_sync`   | Downloads the Reference mods that your mod repos list, and deletes the ones it downloaded that no list has.    |
@@ -82,3 +82,7 @@ Each Capability has its own folder in `src/`. The rules for Rust code are in [`d
 ## Disclaimer
 
 Unofficial. Not affiliated with Bohemia Interactive. Arma Reforger is a trademark of Bohemia Interactive a.s.
+
+## License
+
+The code of this repo is under the MIT license, in [`LICENSE`](LICENSE). The folder [`src/game-files/samples/`](src/game-files/samples/) is not: it holds the text files of Bohemia's sample mods under the Arma Public License (APL), and the server program includes them. Use them only for non-commercial work on Arma games. Its [`README.md`](src/game-files/samples/README.md) names the source and the license.

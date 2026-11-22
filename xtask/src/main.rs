@@ -11,6 +11,7 @@ mod import;
 mod knowledge;
 mod net_api;
 mod port_status;
+mod samples;
 mod tool_choice;
 mod wiki_export;
 mod wikitext;
@@ -34,8 +35,14 @@ use cmd::{Cmd, ImportArgs, SubCmd};
 fn main() -> ExitCode {
     let result = match Cmd::parse().command {
         SubCmd::Ci => ci::run(),
-        SubCmd::Import(ImportArgs { export_list: true }) => import::print_export_steps(),
-        SubCmd::Import(ImportArgs { export_list: false }) => import::run(),
+        SubCmd::Import(ImportArgs {
+            samples: Some(clone),
+            ..
+        }) => import::samples(&clone),
+        SubCmd::Import(ImportArgs {
+            export_list: true, ..
+        }) => import::print_export_steps(),
+        SubCmd::Import(ImportArgs { .. }) => import::run(),
         SubCmd::ToolChoice(args) => tool_choice::run(&args),
         SubCmd::NetApi(args) => net_api::run(&args).map_err(Error::from),
         SubCmd::CallTool(args) => call_tool::run(&args).map_err(Error::from),

@@ -111,3 +111,11 @@
 - The `.gproj` template is the file that the Workbench launcher writes: `ID`, `GUID`, `TITLE`, and the game as the one dependency. The old template also wrote empty `PC` and `HEADLESS` configurations, which Workbench does not write.
 - The GUID comes only from `guid_generate`. When the server is not connected, the skill stops and says to run `claude mcp list`.
 - A new test in `tests/server.rs` fails when a skill names a Tool that the server does not serve.
+
+## Bohemia's sample mods in game_find and game_read (#98)
+
+- Not a Port: the old project did not read the samples. `cargo xtask import --samples <clone>` copies only the text files of the 13 sample mods of `BohemiaInteractive/Arma-Reforger-Samples` to `src/game-files/samples/`: 1.4 MB of the 1.3 GB repo. It reads the commit from the `.git` files of the clone and runs no program in it, because the clone is outside data.
+- `build.rs` puts the files into the server program, so the samples need no setting and no internet (ADR 0006). The index has one source for each sample mod: `game_find` shows `(sample SampleMod_NewWeapon)`, and `game_read` takes `source=SampleMod_NewWeapon`.
+- The samples are under the Arma Public License, not MIT. The folder keeps the APL `LICENSE` and the sample READMEs, and its `README.md` names the source commit. The license check is in issue #98.
+- The notes of `game_find` and `game_read` now say "covered no downloaded Workshop mods", not "covered the game only", because the search also covers the sample mods.
+- `create-mod` points to `SampleMod_ModdedScript` and `SampleMod_Main`. Its `.gproj` template stays without `Configurations` blocks: an empty block sets nothing, because a block holds only the settings that differ for one platform (wiki "Arma Reforger:Resource Manager: Options").

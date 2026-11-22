@@ -30,6 +30,24 @@ pub enum Error {
         second: String,
     },
 
+    /// The folder of `--samples` has no `LICENSE` file or no `SampleMod_` folder.
+    NotASamplesClone {
+        path: PathBuf,
+    },
+    /// The `.git` folder of the samples clone names no commit.
+    NoSamplesCommit {
+        path: PathBuf,
+    },
+    /// A file of the samples clone is larger than the import allows.
+    SampleFileTooLarge {
+        path: PathBuf,
+        len: u64,
+    },
+    /// The folders of the samples clone are nested too deep.
+    SamplesTooDeep {
+        path: PathBuf,
+    },
+
     /// A CSS selector in the Doxygen readers is not valid.
     BadSelector(&'static str),
 
@@ -122,6 +140,28 @@ impl fmt::Display for Error {
                 f,
                 "\"{first}\" and \"{second}\" both go to {path}. Change `page_path` in xtask/src/knowledge.rs."
             ),
+            Self::NotASamplesClone { path } => write!(
+                f,
+                "{} has no LICENSE file or no SampleMod_ folder. Give the folder of a clone of \
+                 https://github.com/BohemiaInteractive/Arma-Reforger-Samples.",
+                path.display()
+            ),
+            Self::NoSamplesCommit { path } => write!(
+                f,
+                "{} names no commit. Clone the samples repo again with `git clone --depth 1`.",
+                path.display()
+            ),
+            Self::SampleFileTooLarge { path, len } => write!(
+                f,
+                "{} has {len} bytes, more than a text file of the samples can have. Check that \
+                 --samples names a clone of the samples repo.",
+                path.display()
+            ),
+            Self::SamplesTooDeep { path } => write!(
+                f,
+                "{} is nested too deep. Check that --samples names a clone of the samples repo.",
+                path.display()
+            ),
             Self::BadSelector(css) => write!(
                 f,
                 "The CSS selector `{css}` in xtask/src/doxygen is not valid."
@@ -191,6 +231,10 @@ impl std::error::Error for Error {
             | Self::NoWikiPages { .. }
             | Self::NoEnginePages { .. }
             | Self::SamePath { .. }
+            | Self::NotASamplesClone { .. }
+            | Self::NoSamplesCommit { .. }
+            | Self::SampleFileTooLarge { .. }
+            | Self::SamplesTooDeep { .. }
             | Self::BadSelector(_)
             | Self::CiStepFailed { .. }
             | Self::ClaudeRunStopped

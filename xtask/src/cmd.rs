@@ -1,5 +1,7 @@
 //! The command-line arguments.
 
+use std::path::PathBuf;
+
 use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser, Debug)]
@@ -14,6 +16,7 @@ pub enum SubCmd {
     /// Run every check of CI, in the same order as CI. Stops at the first failure.
     Ci,
     /// Rebuild the Knowledge base from the Workbench docs (`REFORGER_WORKBENCH_DOCS`) and src/wiki/source/export.xml.
+    /// With `--samples`, copy only the text files of Bohemia's sample mods.
     Import(ImportArgs),
     /// Ask Claude every Tool-choice test in tests/tool-choice/cases.jsonl and check its first call.
     /// Needs a Claude Code login, and costs model use.
@@ -37,6 +40,10 @@ pub struct ImportArgs {
     /// Only print the steps and the page list to save a new export.xml from the wiki.
     #[arg(long)]
     pub export_list: bool,
+    /// Only copy the text files of Bohemia's sample mods into src/game-files/samples/, from this
+    /// local clone of <https://github.com/BohemiaInteractive/Arma-Reforger-Samples>.
+    #[arg(long, value_name = "CLONE", conflicts_with = "export_list")]
+    pub samples: Option<PathBuf>,
 }
 
 #[derive(Args, Debug)]

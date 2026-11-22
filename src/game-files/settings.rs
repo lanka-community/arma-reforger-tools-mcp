@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use super::samples::SAMPLE_FILES;
 use crate::workbench_documents::{DOCUMENTS_SETTING, workbench_documents};
 
 /// The game folder, the folder that holds `ArmaReforger.exe` and `addons`.
@@ -12,7 +13,8 @@ pub(super) const GAME_SETTING: &str = "REFORGER_GAME_PATH";
 /// its `addons` folder and in the `addons` folder of the Workbench folder in Documents.
 pub(super) const PROFILE_SETTING: &str = "REFORGER_WORKBENCH_PROFILE_PATH";
 
-/// The raw values of the settings, as the user wrote them. An empty value counts as not set.
+/// The raw values of the settings, as the user wrote them, and the sample mods. An empty value
+/// counts as not set.
 #[derive(Clone, Default)]
 pub(super) struct Settings {
     pub(super) game: Option<String>,
@@ -21,6 +23,10 @@ pub(super) struct Settings {
     /// The Workbench folder in Documents, where Workbench downloads mods to its `addons` folder.
     /// `None`: no setting, and no such folder found.
     pub(super) documents: Option<PathBuf>,
+
+    /// The files of the sample mods, as in `SAMPLE_FILES`. The server always has them. A test
+    /// can leave them out.
+    pub(super) samples: &'static [(&'static str, &'static [u8])],
 }
 
 impl Settings {
@@ -31,6 +37,7 @@ impl Settings {
             game: read(GAME_SETTING),
             profile: read(PROFILE_SETTING),
             documents: workbench_documents(read(DOCUMENTS_SETTING).as_deref()),
+            samples: SAMPLE_FILES,
         }
     }
 }

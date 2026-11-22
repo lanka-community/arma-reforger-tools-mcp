@@ -17,3 +17,5 @@
 {"question":"Get the Workshop mods that my mod repos say I should study onto this computer.","tools":["reference_sync"]}
 {"question":"I am making a new mod by hand. What ID do I put in the GUID field of my .gproj file?","tools":["guid_generate"]}
 {"question":"I am setting up a Reforger addon from scratch, and its project file wants a unique identifier. Can you come up with one for me?","tools":["guid_generate"]}
+{"question":"How does the official Bohemia example mod set up a new rifle? Find its weapon Prefab files.","tools":["game_find"]}
+{"question":"Show me the modded scoring script from Bohemia's SampleMod_ModdedScript example.","tools":["game_find","game_read"]}

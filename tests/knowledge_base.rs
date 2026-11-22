@@ -43,6 +43,26 @@ fn has_every_wiki_page_and_engine_page_with_a_title_and_a_url() {
 }
 
 #[test]
+fn the_sample_mods_have_their_license_and_name_their_source_commit() {
+    // -- Exec
+    let license = read("src/game-files/samples/LICENSE");
+    let readme = read("src/game-files/samples/README.md");
+
+    // -- Check
+    // The Arma Public License, Section 3(a)(1), asks for the license, the source, and the
+    // copyright notice. The issue #98 has the full license check.
+    assert!(license.starts_with("Arma Public License (APL)"));
+    assert!(readme.contains("https://github.com/BohemiaInteractive/Arma-Reforger-Samples"));
+    let commit = readme
+        .lines()
+        .find_map(|line| line.strip_prefix("- Commit: `")?.strip_suffix('`'))
+        .unwrap_or_default();
+    assert_eq!(commit.len(), 40, "{readme}");
+    assert!(commit.chars().all(|c| c.is_ascii_hexdigit()), "{readme}");
+    assert!(readme.contains("Bohemia Interactive a.s."));
+}
+
+#[test]
 fn no_page_has_template_braces_or_wiki_markup_outside_code() {
     // -- Exec & Check
     for file in markdown_files(&root().join("src/wiki/pages")) {

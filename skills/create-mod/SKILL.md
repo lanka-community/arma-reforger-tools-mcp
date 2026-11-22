@@ -30,7 +30,7 @@ The Tools come from the `reforger` MCP server of this plugin: `guid_generate`, `
 5. **Make the GUID.** Call `guid_generate` one time. Its answer is the GUID: 16 hex characters in upper case. Use this answer as it is.
 
 6. **Write the files.** Copy each template from the `templates/` folder of this skill into the mod folder, and put in the values:
-   - `templates/addon.gproj` becomes `addon.gproj`. Replace `{{ID}}`, `{{GUID}}`, and `{{NAME}}`. The one dependency, `58D0FB3206B6F859`, is the GUID of Arma Reforger. Every mod needs it.
+   - `templates/addon.gproj` becomes `addon.gproj`. Replace `{{ID}}`, `{{GUID}}`, and `{{NAME}}`. The one dependency, `58D0FB3206B6F859`, is the GUID of Arma Reforger. Every mod needs it. The `.gproj` files of Bohemia's sample mods also have empty `Configurations` blocks (`PC`, `HEADLESS`, `XBOX_ONE`, `XBOX_SERIES`, `PS4`). Do not add them: an empty block sets nothing. A block holds only the settings that differ for one platform (wiki page "Arma Reforger:Resource Manager: Options", Section "Per platform parameters").
    - `templates/gitignore` becomes `.gitignore`. It keeps the Handler script of this plugin out of git (see `src/workbench/README.md` of the plugin).
    - Make an empty file `reference-mods.jsonl`. It is the list of Workshop mods that the user wants Claude to study. `reference_sync` downloads them. One line is one JSON object, for example `{"id":"6AA81EE549F50CB7","name":"tvtLobby"}`.
 
@@ -44,11 +44,22 @@ The Tools come from the `reforger` MCP server of this plugin: `guid_generate`, `
 
 9. **Tell the user.** Give the folder, the ID, the GUID, and the Tag, and the rules below that they need for their first script.
 
+## Learn from Bohemia's sample mods
+
+`game_find` and `game_read` also read the text files of Bohemia's sample mods. Each sample mod is a source, for example `(sample SampleMod_ModdedScript)`. Read the samples before you write the first script or file of the mod:
+
+- **A change to a game class**: read `SampleMod_ModdedScript`. Call `game_read` with `path` `Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c` and `source` `SampleMod_ModdedScript`.
+- **The folder layout of a full mod**: read `SampleMod_Main`. Its project file is `SampleMod.gproj` (`source` `SampleMod_Main`). Its folders are `Configs`, `Prefabs`, `UI`, `Worlds`, `Missions`, `Language`, `Terrains`, `Common`, and `Assets`. Find its files with `game_find` and a part of a file name, for example `ArsenalConfig_SampleMod`.
+- **Other jobs**: the other sample mods are `SampleMod_NewWeapon`, `SampleMod_ModdedWeapon`, `SampleMod_NewCar`, `SampleMod_ModdedCar`, `SampleMod_NewCharacter`, `SampleMod_NewFaction`, `SampleMod_NewProp`, `SampleMod_Replacement`, `SampleMod_WorkbenchPlugin`, `SampleMod_AnimationWorkshop`, and `SampleMod_CinematicTutorial`. Find their files with `game_find`, for example `SampleWeapon_01`.
+
+The samples have only their text files. The models, textures, and sounds are in https://github.com/BohemiaInteractive/Arma-Reforger-Samples.
+
 ## Where things go
 
 - **Scripts** go in `Scripts/Game/`. Workbench reads scripts only from the folders of its script modules: `Scripts/Core`, `Scripts/GameLib`, `Scripts/Game`, `Scripts/GameCode`, `Scripts/Workbench`, and `Scripts/WorkbenchGame`. It ignores a script in any other folder, with no error (wiki page "Arma Reforger:Scripting Example", Section "Create the Script").
 - **A new class**: the script file and the class both start with the Tag, for example `Scripts/Game/LNK_PlayerSlot.c` with `class LNK_PlayerSlot`.
 - **A change to a game class** (`modded class`): the class keeps the game name, and the new methods and variables start with the Tag. Put the file at a path that the game does not have. A script file at the same path as a game script replaces the whole game script (wiki page "Arma Reforger:Data Modding Basics", Section "Footnotes"). Bohemia's sample `SampleMod_ModdedScript` puts `modded class SCR_ScoringSystemComponent` in `Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c`, and the game file is `Scripts/Game/GameMode/Scoring/SCR_ScoringSystemComponent.c`. Find the path of the game file with `game_find`.
+- **`.meta` files**: each resource file of a mod, for example a Prefab, has a `.meta` file next to it with the GUID of the file. Workbench writes it. Do not copy a `.meta` file from a sample or another mod: its GUID belongs to the other file.
 - **A Workshop mod as a dependency**: add its GUID to `Dependencies` in `addon.gproj`. The folder of a downloaded Workshop mod is named `<Name>_<GUID>`. The mod must also be in the project list, and so must its own dependencies, or Workbench opens the game without the mod.
 
 For other questions about the project, read the wiki page "Arma Reforger:Mod Project Setup" with `wiki_read`. To see how other mods do a thing, find their files with `game_find`, and read them with `game_read`.

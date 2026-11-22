@@ -70,7 +70,7 @@ pub fn write_pages(dir: &Path, pages: &[PageFile]) -> Result<Changes> {
     }
     for (path, page) in wanted {
         let path = dir.join(path);
-        if write_if_changed(&path, &page.text())? {
+        if write_if_changed(&path, page.text())? {
             changes.written += 1;
         } else {
             changes.unchanged += 1;
@@ -81,8 +81,9 @@ pub fn write_pages(dir: &Path, pages: &[PageFile]) -> Result<Changes> {
 }
 
 /// Writes `text` to `path` when the file is missing or holds another text. Gives `true` when it wrote.
-pub fn write_if_changed(path: &Path, text: &str) -> Result<bool> {
-    if fs::read_to_string(path).is_ok_and(|old| old == text) {
+pub fn write_if_changed(path: &Path, text: impl AsRef<[u8]>) -> Result<bool> {
+    let text = text.as_ref();
+    if fs::read(path).is_ok_and(|old| old == text) {
         return Ok(false);
     }
     if let Some(parent) = path.parent() {
@@ -157,7 +158,9 @@ fn markdown_files(dir: &Path) -> Result<BTreeSet<PathBuf>> {
     Ok(files)
 }
 
-fn remove_empty_dirs(dir: &Path) -> Result<()> {
+/// Deletes each empty folder under `dir`, also a folder that is empty after its empty folders
+/// are deleted.
+pub fn remove_empty_dirs(dir: &Path) -> Result<()> {
     let Ok(entries) = fs::read_dir(dir) else {
         return Ok(());
     };

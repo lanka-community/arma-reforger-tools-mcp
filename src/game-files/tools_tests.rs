@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use rmcp::handler::server::router::tool::ToolRouter;
 
 use super::*;
+use crate::game_files::samples::SAMPLE_FILES;
 use crate::game_files::test_pak::PakBuilder;
 use crate::server::Server;
 use crate::test_support::{self, Answer};
@@ -42,6 +43,7 @@ fn settings(game: &Path, profile: Option<&Path>) -> Settings {
         game: Some(game.display().to_string()),
         profile: profile.map(|p| p.display().to_string()),
         documents: None,
+        samples: &[],
     }
 }
 

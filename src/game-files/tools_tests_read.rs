@@ -394,3 +394,39 @@ fn opens_a_sample_of_all_scripts_in_the_installed_game() {
         scripts.len()
     );
 }
+
+#[tokio::test]
+async fn opens_a_script_of_a_sample_mod_when_the_source_names_the_sample_mod() {
+    // -- Setup & Fixtures
+    let test = "opens_a_script_of_a_sample_mod_when_the_source_names_the_sample_mod";
+    let game = game_folder(test, CAMERA_FILES);
+    let settings = || Settings {
+        samples: SAMPLE_FILES,
+        ..settings(&game, None)
+    };
+    let path = "Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c";
+
+    // -- Exec
+    let by_input = read_in(
+        settings(),
+        json!({ "path": path, "source": "SampleMod_ModdedScript" }),
+    )
+    .await;
+    let by_copied_line = read_in(
+        settings(),
+        json!({ "path": format!("{path} (sample SampleMod_ModdedScript)") }),
+    )
+    .await;
+
+    // -- Check
+    assert!(!by_input.is_error, "{}", by_input.text);
+    assert!(
+        by_input.text.starts_with(&format!(
+            "{path} (sample SampleMod_ModdedScript, 790 bytes)\n\n\
+             modded class SCR_ScoringSystemComponent : SCR_BaseScoringSystemComponent"
+        )),
+        "{}",
+        by_input.text
+    );
+    assert_eq!(by_copied_line.text, by_input.text);
+}

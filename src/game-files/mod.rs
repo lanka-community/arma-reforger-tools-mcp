@@ -7,6 +7,7 @@ mod find;
 mod index;
 mod pak;
 mod read;
+mod samples;
 mod settings;
 mod tools;
 

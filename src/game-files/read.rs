@@ -1,8 +1,8 @@
 //! The `game_read` Tool: opens one Game file by its path, with the closest real paths for a
 //! wrong path.
 //!
-//! Capital letters in the path do not matter, a file in a downloaded mod opens too, and a binary
-//! file is found by its content.
+//! Capital letters in the path do not matter, a file in a downloaded mod or in a sample mod opens
+//! too, and a binary file is found by its content.
 
 use std::fmt::Write as _;
 use std::path::Path;
@@ -30,13 +30,14 @@ pub(super) struct ReadInput {
     #[schemars(length(min = 1))]
     path: String,
 
-    /// Where to open the file when the same path is in the game and in a mod: `game`, or the
-    /// name of a downloaded mod, for example `tvtLobby`. The default is the game first, then the
-    /// mods.
+    /// Where to open the file when the same path is in more than one source: `game`, the name
+    /// of a downloaded mod, for example `tvtLobby`, or the name of a sample mod of Bohemia, for
+    /// example `SampleMod_NewWeapon`. The default is the game first, then the mods, then the
+    /// sample mods.
     source: Option<String>,
 }
 
-/// Answers one `game_read` call. It reads the .pak file, so it runs outside the server thread.
+/// Answers one `game_read` call. It can read a .pak file, so it runs outside the server thread.
 pub(super) fn read(index: &Index, input: &ReadInput) -> Answer {
     let found = lookup(index, input)?;
     let file = found.file;
@@ -50,11 +51,14 @@ pub(super) fn read(index: &Index, input: &ReadInput) -> Answer {
                      mod again."
                 }
             };
+            let holder = file.pak().map_or_else(
+                || "the server program".to_owned(),
+                |pak| pak.display().to_string(),
+            );
             let text = format!(
-                "Could not open {} ({}) from {}: {read_error}.{advice}",
+                "Could not open {} ({}) from {holder}: {read_error}.{advice}",
                 file.path,
                 index.source_of(file),
-                file.pak.display()
             );
             Err(text)
         }
@@ -93,7 +97,8 @@ fn lookup<'a>(index: &'a Index, input: &ReadInput) -> Result<Found<'a>, String> 
     if matches.is_empty() {
         return Err(not_found(index, path));
     }
-    // The game comes first, then the mods. The path with the same capital letters comes first.
+    // The game comes first, then the mods, then the sample mods. The path with the same capital
+    // letters comes first.
     matches.sort_by_key(|file| (file.source, file.path != path));
     let wanted = input
         .source
@@ -106,7 +111,7 @@ fn lookup<'a>(index: &'a Index, input: &ReadInput) -> Result<Found<'a>, String> 
         Some(wanted) => matches
             .iter()
             .copied()
-            .find(|file| is_source(index, file, wanted)),
+            .find(|file| index.is_source(file, wanted)),
     };
     let Some(file) = file else {
         let sources = sources_of(index, &matches).join(", ");
@@ -125,8 +130,8 @@ fn lookup<'a>(index: &'a Index, input: &ReadInput) -> Result<Found<'a>, String> 
         other_sources: sources_of(index, &others),
         other_paks: same_source
             .into_iter()
-            .filter(|other| other.pak != file.pak)
-            .map(|other| &*other.pak)
+            .filter_map(GameFile::pak)
+            .filter(|&pak| Some(pak) != file.pak())
             .collect(),
     })
 }
@@ -153,7 +158,9 @@ fn answer(index: &Index, found: &Found, content: &[u8]) -> Answer {
         index.source_of(file),
         content.len()
     );
-    if !found.other_paks.is_empty() {
+    if let Some(pak) = file.pak()
+        && !found.other_paks.is_empty()
+    {
         let others: Vec<String> = found
             .other_paks
             .iter()
@@ -162,7 +169,7 @@ fn answer(index: &Index, found: &Found, content: &[u8]) -> Answer {
         let _ = writeln!(
             answer,
             "This text comes from {}. The {} has the same path also in: {}.",
-            file.pak.display(),
+            pak.display(),
             index.source_of(file),
             others.join(", ")
         );
@@ -178,15 +185,17 @@ fn answer(index: &Index, found: &Found, content: &[u8]) -> Answer {
     Ok(answer)
 }
 
-/// The path without the parts that Claude often copies with it: the `(game)` or `(mod tvtLobby)`
-/// after a path from `game_find`, and the `{GUID}` before a path from a Prefab. Back slashes
-/// become slashes. Also gives the source from the `(...)` part.
+/// The path without the parts that Claude often copies with it: the `(game)`, `(mod tvtLobby)`,
+/// or `(sample SampleMod_NewWeapon)` after a path from `game_find`, and the `{GUID}` before a
+/// path from a Prefab. Back slashes become slashes. Also gives the source from the `(...)` part.
 fn clean_path(raw: &str) -> (String, Option<&str>) {
     let mut path = raw.trim();
     let mut source = None;
     if let Some((before, after)) = path.rsplit_once(" (")
         && let Some(inside) = after.strip_suffix(')')
-        && (inside.eq_ignore_ascii_case("game") || inside.starts_with("mod "))
+        && (inside.eq_ignore_ascii_case("game")
+            || inside.starts_with("mod ")
+            || inside.starts_with("sample "))
     {
         path = before.trim_end();
         source = Some(inside);
@@ -200,16 +209,6 @@ fn clean_path(raw: &str) -> (String, Option<&str>) {
     }
     let path = path.replace('\\', "/");
     (path.trim_matches('/').to_owned(), source)
-}
-
-/// Whether `file` comes from the source that the user named `wanted`: "game", "tvtLobby", or
-/// "mod tvtLobby". Capital letters do not matter.
-fn is_source(index: &Index, file: &GameFile, wanted: &str) -> bool {
-    let name = index.source_of(file);
-    name.eq_ignore_ascii_case(wanted)
-        || name
-            .strip_prefix("mod ")
-            .is_some_and(|name| name.eq_ignore_ascii_case(wanted))
 }
 
 /// The source names of `files`, each once, in the order of `files`.
