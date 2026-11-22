@@ -111,3 +111,10 @@
 - The `.gproj` template is the file that the Workbench launcher writes: `ID`, `GUID`, `TITLE`, and the game as the one dependency. The old template also wrote empty `PC` and `HEADLESS` configurations, which Workbench does not write.
 - The GUID comes only from `guid_generate`. When the server is not connected, the skill stops and says to run `claude mcp list`.
 - A new test in `tests/server.rs` fails when a skill names a Tool that the server does not serve.
+
+## workbench_cleanup (#62)
+
+- Ported `wb_cleanup` from the old `src/tools/wb-launch.ts` as the Tool `workbench_cleanup`. The old answers stay: a delete says that the mod is ready to publish, and a mod with no Handler script gives a normal answer, not an error.
+- Changed: the input is `mod`, a name in the project list, with the same lookup as `workbench_launch`, not a folder path. So the Tool deletes only in a mod of the user, and never in the game or a Workshop mod.
+- New: after the delete, it also deletes `Scripts/WorkbenchGame` and `Scripts` when they are empty, because the bridge made them. A folder with any file in it stays.
+- It makes no NET API call, so it works when Workbench is closed. Workbench keeps the old Handler script loaded until its next script reload.

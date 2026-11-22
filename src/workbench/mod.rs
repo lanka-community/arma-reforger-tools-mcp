@@ -3,6 +3,7 @@
 // region:    --- Modules
 
 mod bridge;
+mod cleanup;
 mod error;
 mod install;
 mod launch;

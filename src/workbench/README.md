@@ -1,6 +1,6 @@
 # workbench
 
-The Workbench bridge: it calls the Handler script of this plugin in a Workbench that already runs, through the Workbench NET API. When the Handler script is missing or old, it copies the new one into the open mod and asks Workbench to compile the scripts again. It never starts or stops Workbench, never polls, and never changes a `.gproj` file (ADR 0009). Only the Tool `workbench_launch` starts Workbench (ADR 0010).
+The Workbench bridge: it calls the Handler script of this plugin in a Workbench that already runs, through the Workbench NET API. When the Handler script is missing or old, it copies the new one into the open mod and asks Workbench to compile the scripts again. It never starts or stops Workbench, never polls, and never changes a `.gproj` file (ADR 0009). Only the Tool `workbench_launch` starts Workbench (ADR 0010). Only the Tool `workbench_cleanup` deletes the Handler script, and it makes no NET API call.
 
 ## Tools
 
@@ -10,7 +10,7 @@ The Workbench bridge: it calls the Handler script of this plugin in a Workbench 
   - Workbench had an old version of the Handler script. The Tool copied the new one and reloaded the scripts, and now it is loaded.
   - The Handler script is loaded. The answer gives its version and the open mod project, for example `BridgeTest in /mnt/d/ArmaReforgerWorkbench/BridgeTest`.
 
-  The last three answers end with the next step: delete the folder of the Handler script before you pack or publish the mod. "Not running" is an error for the other Workbench Tools, but for `workbench_status` it is a normal answer: this Tool reports the state.
+  The last three answers end with the next step: call `workbench_cleanup` before you pack or publish the mod. "Not running" is an error for the other Workbench Tools, but for `workbench_status` it is a normal answer: this Tool reports the state.
 
   Other failures are errors, each with the next step: the scripts of the mod do not compile, the reload did not load the Handler script, no answer in 10 seconds, a connection that breaks before the answer, an answer that is not a NET API answer, or no open mod in the project list. The Tool writes a file, so it is not read-only, and it is destructive: it overwrites an old Handler script.
 
@@ -22,6 +22,12 @@ The Workbench bridge: it calls the Handler script of this plugin in a Workbench 
   When no user is logged in to Steam, it starts Steam first and waits for a login (at most 120 seconds), because Workbench closes without Steam. The answer then starts with "No user was logged in to Steam, so `workbench_launch` started Steam."
 
   Errors, each with the next step: Steam, Arma Reforger Tools, or the game is not installed (with the `steam://install/<app>` link); PowerShell did not start Steam, or no user logged in to Steam in time; `mod` is not in the project list, or it is empty and the list has more than one mod (the answer lists the mods); PowerShell did not start Workbench; the NET API did not answer in time; the scripts did not compile in time; or Workbench did not load the mod. In the last case the answer gives the errors of the Workbench log, for example `Addon 'BridgeTest' dependency '672B195EAD3036D4' can't be added`.
+
+- `workbench_cleanup`: deletes the Handler script from one mod, so that Workbench does not pack it. Its input `mod` is required: the ID or the folder name of a mod in the project list, in any case, as for `workbench_launch`. A packed project, the game or a Workshop mod, is never a match. The Tool deletes files, so it never picks a mod itself: an empty `mod` is an error, also when the project list has one mod. It works when Workbench is closed: it makes no NET API call and does not reload the scripts. It deletes the folder `Scripts/WorkbenchGame/ReforgerBridge/` with everything in it. Then it deletes `Scripts/WorkbenchGame` and then `Scripts` when they are empty now. It changes no other file or folder. It answers:
+  - It deleted the folder: the answer names the folder and the mod folder, and says that the mod is ready to pack. Workbench keeps the Handler script loaded until its next script reload, and `workbench_status` copies it again when a Workbench Tool needs it.
+  - The folder is not there: it deletes nothing, and the mod is ready to pack. This is a normal answer, so a second call is safe.
+
+  Errors, each with the next step: `mod` is empty (the answer says that `mod` is required and lists the mods); `mod` is not in the project list (the same answer as `workbench_launch`, with the list of mods, but it says to call `workbench_cleanup` again); or the delete failed (the answer names the path and the error of the system). The Tool deletes files, so it is destructive and its own Tool.
 
 ## Settings
 
@@ -58,7 +64,7 @@ The Workbench folder in Documents comes from `src/workbench_documents.rs`, so ev
 
 The Handler script goes into your mod when Workbench packs or publishes it: a pack of the test mod `BridgeTest` had `Scripts/WorkbenchGame/ReforgerBridge/ReforgerBridge.c` in its `data.pak`. Workbench has no setting to leave a folder out of a pack.
 
-- Before you pack or publish, delete the folder `Scripts/WorkbenchGame/ReforgerBridge/` from your mod.
+- Before you pack or publish, call `workbench_cleanup` with your mod. It deletes the folder `Scripts/WorkbenchGame/ReforgerBridge/` from your mod.
 - Add this line to the `.gitignore` of your mod, so the Handler script does not go into git:
 
   ```gitignore

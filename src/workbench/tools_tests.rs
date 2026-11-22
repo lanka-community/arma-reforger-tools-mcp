@@ -11,21 +11,25 @@ use tokio::net::TcpListener;
 
 use super::*;
 use crate::server::Server;
-use crate::test_support::fake_workbench::{Reply, serve};
+use crate::test_support::fake_workbench::{Reply, free_port, serve};
 use crate::test_support::{self, Answer};
 use crate::workbench::launch::{FakeWindows, StartCommand};
 use crate::workbench::settings::{Port, Starter};
 
 /// The end of every answer with a loaded Handler script.
 const NEXT_STEP: &str = "The Workbench Tools can use it now. Before you pack or publish the mod, \
-                         delete its folder Scripts/WorkbenchGame/ReforgerBridge: Workbench packs \
-                         the Handler script with the mod.";
+                         call workbench_cleanup to delete its folder \
+                         Scripts/WorkbenchGame/ReforgerBridge: Workbench packs the Handler \
+                         script with the mod.";
 
 #[path = "tools_tests_status.rs"]
 mod status;
 
 #[path = "tools_tests_launch.rs"]
 mod launch;
+
+#[path = "tools_tests_cleanup.rs"]
+mod cleanup;
 
 // region:    --- Test Support
 
@@ -154,6 +158,14 @@ impl Setup {
         );
         let client = test_support::connect(router::<Server>(settings)).await;
         test_support::call(&client, "workbench_launch", input).await
+    }
+
+    /// Calls `workbench_cleanup` with `input`. Nothing answers on the Workbench port.
+    async fn cleanup(&self, input: Value) -> Answer {
+        let port = Port::Valid(free_port().await);
+        let settings = self.settings(port, None, Starter::PowerShell);
+        let client = test_support::connect(router::<Server>(settings)).await;
+        test_support::call(&client, "workbench_cleanup", input).await
     }
 
     fn settings(&self, port: Port, steam: Option<String>, starter: Starter) -> Settings {
