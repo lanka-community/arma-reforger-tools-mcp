@@ -44,7 +44,7 @@ claude plugin install reforger@reforger-local
 
 | Skill        | What it does                                                                                                                |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------- |
-| `create-mod` | Starts a new mod from an empty folder: the `.gproj` file with a GUID from `guid_generate`, and the first open in Workbench. |
+| `create-mod` | Starts a new mod from an empty folder: the `.gproj` file with a GUID from `guid_generate`, the first open in Workbench, and the download of two of Bohemia's sample mods with `reference_sync`, which Claude reads before the first script. |
 
 ## Development
 

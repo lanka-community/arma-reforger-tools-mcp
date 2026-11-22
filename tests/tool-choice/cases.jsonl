@@ -17,5 +17,8 @@
 {"question":"I want to publish BridgeTest on the Workshop. First get rid of the script that your plugin put into it.","tools":["workbench_cleanup"],"args":{"mod":"BridgeTest"}}
 {"question":"I removed a mod from my reference list. Clean up the downloaded reference mods so they match my lists again.","tools":["reference_sync"]}
 {"question":"Get the Workshop mods that my mod repos say I should study onto this computer.","tools":["reference_sync"]}
+{"question":"Which files of the downloaded Bohemia sample mods have SampleWeapon_01 in their name?","tools":["game_find"],"args":{"query":"SampleWeapon_01"}}
+{"question":"Open Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c of the mod SampleMod-ModdedScript.","tools":["game_read"],"args":{"path":"Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c"}}
+{"question":"I put Bohemia's sample mods in the reference-mods.jsonl of my new mod. Download them now.","tools":["reference_sync"]}
 {"question":"I am making a new mod by hand. What ID do I put in the GUID field of my .gproj file?","tools":["guid_generate"]}
 {"question":"I am setting up a Reforger addon from scratch, and its project file wants a unique identifier. Can you come up with one for me?","tools":["guid_generate"]}
