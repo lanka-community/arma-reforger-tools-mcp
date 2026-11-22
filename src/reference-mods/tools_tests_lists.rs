@@ -213,3 +213,27 @@ async fn stops_before_any_delete_when_the_mods_path_is_not_set_or_not_a_folder()
         assert!(setup.addons().join(format!("OldMod_{DROPPED}")).is_dir());
     }
 }
+
+#[tokio::test]
+async fn reads_the_sample_mods_list_of_the_create_mod_skill_as_the_folders_workbench_downloads() {
+    // -- Setup & Fixtures
+    // The folder names are the ones that a real download of the two sample mods made in `addons`.
+    let setup = Setup::new();
+    setup.list(
+        "NewMod",
+        include_str!("../../skills/create-mod/templates/reference-mods.jsonl"),
+    );
+    setup.mod_folder("SampleMod-MainAddon_5614E48162D7B84F");
+    setup.mod_folder("SampleMod-ModdedScript_5614E482B37103E5");
+
+    // -- Exec
+    let answer = setup.sync().await;
+
+    // -- Check
+    assert!(!answer.is_error, "{}", answer.text);
+    assert_eq!(
+        answer.text,
+        "SampleMod-MainAddon (5614E48162D7B84F), license unknown: present\n\
+         SampleMod-ModdedScript (5614E482B37103E5), license unknown: present"
+    );
+}

@@ -118,3 +118,10 @@
 - Changed: the input is `mod`, a name in the project list, with the same lookup as `workbench_launch`, not a folder path. So the Tool deletes only in a mod of the user, and never in the game or a Workshop mod.
 - New: after the delete, it also deletes `Scripts/WorkbenchGame` and `Scripts` when they are empty, because the bridge made them. A folder with any file in it stays.
 - It makes no NET API call, so it works when Workbench is closed. Workbench keeps the old Handler script loaded until its next script reload.
+
+## create-mod reads Bohemia's sample mods (#98)
+
+- The skill writes `reference-mods.jsonl` from the new template `templates/reference-mods.jsonl` with two sample mods from the Workshop: Sample Mod - Main Addon (`5614E48162D7B84F`) and Sample Mod - Modded Script (`5614E482B37103E5`). It calls `reference_sync` after the first open, and Claude reads the samples with `game_find` and `game_read` before the first script.
+- A real download on 2026-11-22: Main Addon is 5.2 MB in `SampleMod-MainAddon_5614E48162D7B84F`, and Modded Script is 0.35 MB in `SampleMod-ModdedScript_5614E482B37103E5`. The source names in `game_find` are `SampleMod-MainAddon` and `SampleMod-ModdedScript`. Main Addon lists the other samples as dependencies, but `reference_sync` downloads only the listed mods, so the list has both.
+- The `.gproj` template now has the empty `Configurations` blocks of the sample mods, one for each platform.
+- A test in `src/reference-mods/tools_tests_lists.rs` reads the template as a list and checks it against the folder names of the real download.
