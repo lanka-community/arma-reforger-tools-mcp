@@ -6,6 +6,7 @@ use std::fs;
 use std::io::ErrorKind;
 use std::path::Path;
 
+use super::error::NoCleanup;
 use super::install::handler_folder;
 use super::{Error, Result};
 
@@ -17,16 +18,19 @@ pub(super) fn cleanup(project: &Path) -> Result<bool> {
     match fs::remove_dir_all(&folder) {
         Ok(()) => {}
         Err(err) if err.kind() == ErrorKind::NotFound => return Ok(false),
-        Err(err) => return Err(Error::CleanupFailed { path: folder, err }),
+        Err(err) => return Err(NoCleanup::Failed { path: folder, err }.into()),
     }
     for parent in folder
         .ancestors()
         .skip(1)
         .take_while(|parent| *parent != project)
     {
-        let failed = |err| Error::CleanupFailed {
-            path: parent.to_owned(),
-            err,
+        let failed = |err| -> Error {
+            NoCleanup::Failed {
+                path: parent.to_owned(),
+                err,
+            }
+            .into()
         };
         // A folder that holds a file or a folder stays, and so do the folders above it.
         if fs::read_dir(parent).map_err(failed)?.next().is_some() {

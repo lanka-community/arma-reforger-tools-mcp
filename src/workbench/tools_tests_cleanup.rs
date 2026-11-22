@@ -146,7 +146,7 @@ async fn names_the_real_mods_when_the_mod_is_unknown() {
     assert_eq!(
         unknown.text,
         "The project list of Workbench has no mod \"Charlie\". Its mods: Alpha, Bravo. Call \
-         workbench_launch again with one of them."
+         workbench_cleanup again with one of them."
     );
     assert!(packed.is_error, "{}", packed.text);
     assert!(
@@ -155,6 +155,48 @@ async fn names_the_real_mods_when_the_mod_is_unknown() {
             .starts_with("The project list of Workbench has no mod \"CoopSlotLobby\"."),
         "{}",
         packed.text
+    );
+}
+
+#[tokio::test]
+async fn needs_a_mod_and_deletes_nothing_when_the_mod_is_empty() {
+    // -- Setup & Fixtures
+    let setup = Setup::new();
+    let handler = setup.handler_file();
+    fs::create_dir_all(handler.parent().unwrap()).unwrap();
+    fs::write(&handler, "class ReforgerBridge {}").unwrap();
+
+    // -- Exec
+    let empty = setup.cleanup(json!({ "mod": "" })).await;
+    let spaces = setup.cleanup(json!({ "mod": "   " })).await;
+
+    // -- Check
+    let expected = "workbench_cleanup needs `mod`: the mod to clean up. The project list of \
+                    Workbench has these mods: BridgeTest. Call workbench_cleanup again with \
+                    `mod` set to one of them.";
+    assert!(empty.is_error, "{}", empty.text);
+    assert_eq!(empty.text, expected);
+    assert!(spaces.is_error, "{}", spaces.text);
+    assert_eq!(spaces.text, expected);
+    assert!(handler.is_file());
+}
+
+#[tokio::test]
+async fn needs_a_mod_when_the_mod_is_empty_and_the_project_list_has_no_mods() {
+    // -- Setup & Fixtures
+    let setup = Setup::with_projects(&[]);
+
+    // -- Exec
+    let answer = setup.cleanup(json!({ "mod": "" })).await;
+
+    // -- Check
+    assert!(answer.is_error, "{}", answer.text);
+    assert_eq!(
+        answer.text,
+        "workbench_cleanup needs `mod`: the mod to clean up. The project list of Workbench has \
+         no mods, so no mod has a Handler script to delete. If the mod is not in the list, call \
+         workbench_launch without a mod to open the Workbench launcher, and ask the user to add \
+         the mod there (Add Existing). Then call workbench_cleanup again with `mod` set to it."
     );
 }
 
