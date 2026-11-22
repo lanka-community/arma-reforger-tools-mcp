@@ -9,7 +9,7 @@ Finds and opens Game files: the scripts, prefabs, configs, and other files insid
   - A class name that starts with `SCR_` also finds the file without the prefix: `SCR_CharacterCameraHandlerComponent` finds `CharacterCameraHandlerComponent.c` first.
   - Each path says where it comes from: `(game)`, `(mod tvtLobby)`, or `(sample SampleMod_NewWeapon)`. Example: `SampleWeapon_01` finds `Prefabs/Weapons/Rifles/SampleWeapon_01.et (sample SampleMod_NewWeapon)` first.
   - `limit` sets how many paths the list shows, from 1 to 100 (default 20). A longer list is cut, and the first line says how many match.
-  - When no file matches, the answer says how many files it searched, in the game, in which mods, and in how many sample mods.
+  - When no file matches, the answer says how many files it searched, in the game, in which mods, and in how many sample mods. Without `REFORGER_GAME_PATH`, the list has no game: "Searched 1418 files in 13 sample mods."
   - An empty query gives an error with an example.
 - `game_read`: opens one Game file by its `path` and returns its full text. The first line gives the real path, the source, and the size in bytes, for example `scripts/Game/Character/CharacterCameraHandlerComponent.c (game, 43980 bytes)`.
   - Capital letters do not matter: `Scripts/Game/Character/CharacterCameraHandlerComponent.c` opens the file and gives the real path, `scripts/...`.
@@ -24,7 +24,7 @@ Finds and opens Game files: the scripts, prefabs, configs, and other files insid
 
 Set them in the `env` of Claude Code's `settings.json`. A path works in Windows form (`D:\Games\...`) and in WSL form (`/mnt/d/Games/...`). Restart Claude Code after a change.
 
-- `REFORGER_GAME_PATH`: the game folder, the folder that holds `ArmaReforger.exe` and `addons`. Without it, or when it has no `addons` folder with .pak files, `game_find` and `game_read` give an error that names the setting, also for the sample mods.
+- `REFORGER_GAME_PATH`: the game folder, the folder that holds `ArmaReforger.exe` and `addons`. Without it, `game_find` and `game_read` search the downloaded Workshop mods and the sample mods only. Each `game_find` answer, and each `game_read` answer for a path that no file has, then ends with a note that names the setting and says how to set it. When it is set, but the folder has no `addons` folder with .pak files, both Tools give an error that names the setting.
 - `REFORGER_WORKBENCH_DOCUMENTS_PATH`: the Workbench folder in Documents, for example `C:\Users\<you>\Documents\My Games\ArmaReforgerWorkbench`. Workbench downloads Workshop mods to its `addons` folder. Without it, `game-files` finds the folder the same way as `workbench` (`src/workbench_documents.rs`).
 - `REFORGER_WORKBENCH_PROFILE_PATH`: a second folder that holds `addons` with Workshop mods, for example `D:\DownloadedMods`, the folder where the game downloads mods. Without it and without a Documents folder, `game_find` and `game_read` use the game only, and `game_find` says so.
 

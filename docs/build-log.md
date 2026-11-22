@@ -119,3 +119,4 @@
 - The samples are under the Arma Public License, not MIT. The folder keeps the APL `LICENSE` and the sample READMEs, and its `README.md` names the source commit. The license check is in issue #98.
 - The notes of `game_find` and `game_read` now say "covered no downloaded Workshop mods", not "covered the game only", because the search also covers the sample mods.
 - `create-mod` points to `SampleMod_ModdedScript` and `SampleMod_Main`. Its `.gproj` template stays without `Configurations` blocks: an empty block sets nothing, because a block holds only the settings that differ for one platform (wiki "Arma Reforger:Resource Manager: Options").
+- `game_find` and `game_read` work without `REFORGER_GAME_PATH`: the index then has the Workshop mods and the sample mods, and a note names the setting, so Claude knows that the game was not searched. A game folder that is set but has no .pak files still gives an error.

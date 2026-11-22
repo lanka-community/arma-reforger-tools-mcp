@@ -430,3 +430,53 @@ async fn opens_a_script_of_a_sample_mod_when_the_source_names_the_sample_mod() {
     );
     assert_eq!(by_copied_line.text, by_input.text);
 }
+
+#[tokio::test]
+async fn opens_a_script_of_a_sample_mod_when_the_game_folder_is_not_set() {
+    // -- Setup & Fixtures
+    let settings = || Settings {
+        samples: SAMPLE_FILES,
+        ..Settings::default()
+    };
+    let path = "Scripts/Game/GameMode/Scoring/Modded/SCR_ScoringSystemComponent.c";
+
+    // -- Exec
+    let found = read_in(
+        settings(),
+        json!({ "path": path, "source": "SampleMod_ModdedScript" }),
+    )
+    .await;
+    let missing = read_in(
+        settings(),
+        json!({ "path": "scripts/Game/Character/CharacterCameraHandlerComponent.c" }),
+    )
+    .await;
+
+    // -- Check
+    assert!(!found.is_error, "{}", found.text);
+    assert!(
+        found.text.starts_with(&format!(
+            "{path} (sample SampleMod_ModdedScript, 790 bytes)\n\n\
+             modded class SCR_ScoringSystemComponent : SCR_BaseScoringSystemComponent"
+        )),
+        "{}",
+        found.text
+    );
+    assert!(missing.is_error);
+    assert!(
+        missing.text.starts_with(&format!(
+            "No Game file has the path \"scripts/Game/Character/CharacterCameraHandlerComponent.c\". \
+             Searched {} files in 13 sample mods.",
+            SAMPLE_FILES.len()
+        )),
+        "{}",
+        missing.text
+    );
+    assert!(
+        missing
+            .text
+            .contains("REFORGER_GAME_PATH is not set, so the search covered no files of the game."),
+        "{}",
+        missing.text
+    );
+}

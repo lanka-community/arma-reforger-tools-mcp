@@ -11,7 +11,7 @@ use std::time::SystemTime;
 use tokio_util::sync::CancellationToken;
 
 use super::pak::{FileData, PakFile, list_files, read_file};
-use super::settings::{PROFILE_SETTING, Settings};
+use super::settings::{GAME_SETTING, PROFILE_SETTING, Settings};
 use super::{Error, Result};
 use crate::host_path::host_path;
 use crate::mod_folder::ModFolder;
@@ -21,7 +21,7 @@ use crate::workbench_documents::DOCUMENTS_SETTING;
 pub(super) struct Index {
     pub(super) files: Vec<GameFile>,
 
-    /// `Source::Game` first, then each mod, then each sample mod.
+    /// `Source::Game` first when the game folder is set, then each mod, then each sample mod.
     pub(super) sources: Vec<Source>,
 
     /// Each line says what the search did not cover and how to fix it.
@@ -152,27 +152,38 @@ impl GameFile {
 }
 
 /// Reads the file lists of all .pak archives of the game and of the mods, and adds the files of
-/// the sample mods in `settings`. It fails when the game folder is not set or has no .pak files.
-/// A damaged .pak file or a missing mods folder becomes a note. It checks `cancel` before each
-/// .pak file.
+/// the sample mods in `settings`. When the game folder is not set, the index has no files of the
+/// game, and a note names the setting. It fails when the game folder is set but has no .pak
+/// files. A damaged .pak file or a missing mods folder becomes a note. It checks `cancel` before
+/// each .pak file.
 pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<Index> {
-    let raw_game = settings.game.as_deref().ok_or(Error::GamePathNotSet)?;
-    let game_folder = host_path(raw_game);
-    let mut game_paks = Vec::new();
-    collect_paks(&game_folder.join("addons"), 2, &mut game_paks);
-    if game_paks.is_empty() {
-        return Err(Error::NoGamePaks {
-            value: raw_game.to_owned(),
-            folder: game_folder,
-        });
-    }
     let mut index = Index {
         files: Vec::new(),
-        sources: vec![Source::Game],
+        sources: Vec::new(),
         notes: Vec::new(),
         mods: ModsOnDisk(Vec::new()),
     };
-    index.add(0, &game_paks, cancel)?;
+    match settings.game.as_deref() {
+        None => index.notes.push(format!(
+            "{GAME_SETTING} is not set, so the search covered no files of the game. Set it to the \
+             game folder, the folder that holds ArmaReforger.exe, for example \
+             \"D:\\SteamLibrary\\steamapps\\common\\Arma Reforger\" or \
+             \"/mnt/d/SteamLibrary/steamapps/common/Arma Reforger\". Then restart Claude Code."
+        )),
+        Some(raw_game) => {
+            let game_folder = host_path(raw_game);
+            let mut game_paks = Vec::new();
+            collect_paks(&game_folder.join("addons"), 2, &mut game_paks);
+            if game_paks.is_empty() {
+                return Err(Error::NoGamePaks {
+                    value: raw_game.to_owned(),
+                    folder: game_folder,
+                });
+            }
+            index.sources.push(Source::Game);
+            index.add(0, &game_paks, cancel)?;
+        }
+    }
     let ModFolders { folders, notes } = mod_folders(settings);
     index.notes.extend(notes);
     let mods = ModsOnDisk::of(folders);
@@ -259,8 +270,8 @@ impl Index {
             .is_some_and(|source| source.is(wanted))
     }
 
-    /// What the search covered: "the game", "the game and 2 mods (tvtLobby, Other)", or "the
-    /// game, 1 mod (tvtLobby), and 13 sample mods".
+    /// What the search covered: "the game", "the game and 2 mods (tvtLobby, Other)", "the game,
+    /// 1 mod (tvtLobby), and 13 sample mods", or "13 sample mods" when the game folder is not set.
     pub(super) fn searched(&self) -> String {
         let mods: Vec<&str> = self
             .sources
@@ -275,7 +286,14 @@ impl Index {
             .iter()
             .filter(|source| matches!(source, Source::Sample(_)))
             .count();
-        let mut parts = vec!["the game".to_owned()];
+        let mut parts = Vec::new();
+        if self
+            .sources
+            .iter()
+            .any(|source| matches!(source, Source::Game))
+        {
+            parts.push("the game".to_owned());
+        }
         match mods.len() {
             0 => {}
             1 => parts.push(format!("1 mod ({})", mods.join(", "))),
@@ -290,7 +308,7 @@ impl Index {
             [last] => last.clone(),
             [first, last] => format!("{first} and {last}"),
             [rest @ .., last] => format!("{}, and {last}", rest.join(", ")),
-            [] => String::new(),
+            [] => "no source".to_owned(),
         }
     }
 

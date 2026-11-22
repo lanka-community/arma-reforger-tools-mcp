@@ -216,16 +216,57 @@ async fn lists_a_mod_in_the_profile_and_in_documents_once_from_documents() {
 }
 
 #[tokio::test]
-async fn names_the_setting_when_the_game_folder_is_not_set() {
+async fn finds_the_files_of_a_sample_mod_when_the_game_folder_is_not_set() {
+    // -- Setup & Fixtures
+    let settings = Settings {
+        samples: SAMPLE_FILES,
+        ..Settings::default()
+    };
+
     // -- Exec
-    let answer = find_in(Settings::default(), json!({ "query": "Camera" })).await;
+    let answer = find_in(settings, json!({ "query": "SampleWeapon_01" })).await;
 
     // -- Check
-    assert!(answer.is_error);
+    assert!(!answer.is_error, "{}", answer.text);
+    let first = answer.text.lines().nth(1).unwrap_or_default();
+    assert_eq!(
+        first,
+        "- Prefabs/Weapons/Rifles/SampleWeapon_01.et (sample SampleMod_NewWeapon)"
+    );
     assert!(
-        answer
-            .text
-            .starts_with("REFORGER_GAME_PATH is not set. Set it to the game folder"),
+        answer.text.contains(
+            "REFORGER_GAME_PATH is not set, so the search covered no files of the game. Set it \
+             to the game folder"
+        ),
+        "{}",
+        answer.text
+    );
+}
+
+#[tokio::test]
+async fn names_the_game_setting_when_no_file_matches_and_the_game_folder_is_not_set() {
+    // -- Setup & Fixtures
+    let settings = Settings {
+        samples: SAMPLE_FILES,
+        ..Settings::default()
+    };
+
+    // -- Exec
+    let answer = find_in(settings, json!({ "query": "CharacterCameraHandler" })).await;
+
+    // -- Check
+    assert!(!answer.is_error, "{}", answer.text);
+    let searched = format!(
+        "No Game file has \"CharacterCameraHandler\" in its name or path. Searched {} files in \
+         13 sample mods.",
+        SAMPLE_FILES.len()
+    );
+    assert!(answer.text.starts_with(&searched), "{}", answer.text);
+    assert!(
+        answer.text.contains(
+            "\n\nREFORGER_GAME_PATH is not set, so the search covered no files of the game. \
+             Set it to the game folder, the folder that holds ArmaReforger.exe"
+        ),
         "{}",
         answer.text
     );

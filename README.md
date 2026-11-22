@@ -37,7 +37,7 @@ claude plugin install reforger@reforger-local
 | `reference_sync`   | Downloads the Reference mods that your mod repos list, and deletes the ones it downloaded that no list has.    |
 | `guid_generate`    | Makes a new random GUID for the `.gproj` file of a new mod: 16 hex characters in upper case.                   |
 
-`game_find`, `game_read`, the Workbench tools, and `reference_sync` need settings. Their READMEs list them: [`src/game-files/README.md`](src/game-files/README.md), [`src/workbench/README.md`](src/workbench/README.md), and [`src/reference-mods/README.md`](src/reference-mods/README.md).
+`game_find` and `game_read` need settings for the game and the Workshop mods, not for the sample mods. The Workbench tools and `reference_sync` need settings too. Their READMEs list them: [`src/game-files/README.md`](src/game-files/README.md), [`src/workbench/README.md`](src/workbench/README.md), and [`src/reference-mods/README.md`](src/reference-mods/README.md).
 
 ## Skills
 

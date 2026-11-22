@@ -9,9 +9,6 @@ pub type Result<T> = core::result::Result<T, Error>;
 
 #[derive(Debug)]
 pub enum Error {
-    /// The setting that names the game folder is missing.
-    GamePathNotSet,
-
     /// The game folder has no `addons` folder with .pak files.
     NoGamePaks {
         value: String,
@@ -76,12 +73,6 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::GamePathNotSet => write!(
-                f,
-                "{GAME_SETTING} is not set. Set it to the game folder, the folder that holds \
-                 ArmaReforger.exe, for example \"D:\\SteamLibrary\\steamapps\\common\\Arma Reforger\" \
-                 or \"/mnt/d/SteamLibrary/steamapps/common/Arma Reforger\". Then restart Claude Code."
-            ),
             Self::NoGamePaks { value, folder } => write!(
                 f,
                 "{GAME_SETTING} is \"{value}\", but {} has no addons folder with .pak files. Set \
@@ -147,8 +138,7 @@ impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Io(err) | Self::Unpack(err) => Some(err),
-            Self::GamePathNotSet
-            | Self::NoGamePaks { .. }
+            Self::NoGamePaks { .. }
             | Self::Cancelled
             | Self::ReaderStopped
             | Self::NotAPak
