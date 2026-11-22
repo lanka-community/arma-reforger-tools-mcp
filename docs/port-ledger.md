@@ -31,7 +31,7 @@ History: 53 sessions with the old server, from 2026-11-05 to 2026-11-15.
 | `scenario_create_conflict` | not yet |  | never used in 53 sessions, suggest: not needed |
 | `script_create` | not yet |  | never used in 53 sessions, suggest: not needed |
 | `server_config` | not yet |  | never used in 53 sessions, suggest: not needed |
-| `wb_cleanup` | not yet | [#62](https://github.com/lanka-community/arma-reforger-tools-mcp/issues/62) | never used in 53 sessions, suggest: not needed |
+| `wb_cleanup` | ported | [tool workbench_cleanup](../src/workbench/tools.rs) | never used in 53 sessions, suggest: not needed |
 | `wb_clipboard` | not yet |  | never used in 53 sessions, suggest: not needed |
 | `wb_component` | not yet |  | never used in 53 sessions, suggest: not needed |
 | `wb_connect` | ported | [tool workbench_status](../src/workbench/tools.rs) | never used in 53 sessions, suggest: not needed |

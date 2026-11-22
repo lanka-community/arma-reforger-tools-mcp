@@ -103,6 +103,22 @@ pub(super) async fn launch(bridge: &Bridge, wanted: Option<&str>) -> Result<Laun
     Ok(Launched::Started { project, steam })
 }
 
+/// The mod named `wanted` in the project list: its ID or its folder name, in any case. An unknown
+/// name gives the same error as `workbench_launch`. An empty name works like the empty `mod` of
+/// `workbench_launch`: it finds the one mod of the project list.
+pub(super) fn find_mod(bridge: &Bridge, wanted: &str) -> Result<Project> {
+    let mods = mods(bridge)?;
+    match choose(mods, Some(wanted))? {
+        Some(project) => Ok(project),
+        // Only an empty name and an empty project list come here.
+        None => Err(NoStart::UnknownMod {
+            wanted: wanted.to_owned(),
+            names: Vec::new(),
+        }
+        .into()),
+    }
+}
+
 /// The Windows of a test: it fakes the start of Workbench and of Steam, and the Steam login.
 #[cfg(test)]
 pub(super) struct FakeWindows {

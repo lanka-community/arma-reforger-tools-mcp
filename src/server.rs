@@ -42,6 +42,10 @@ Workbench, use the wiki Tools.
 ready. When Workbench runs already, it starts nothing and names the open mod. It finds the \
 user's mods itself, so call it directly, also when the user names no mod, and do not look for a \
 .gproj file first.
+- `workbench_cleanup`: delete the Handler script of this plugin from the user's mod named in \
+`mod`, before the user packs or publishes the mod. When the user wants to clean up a mod or \
+get it ready to pack or publish, call it directly. It finds the mod itself and works when \
+Workbench is closed, so do not look for files or call `workbench_status` first.
 - `reference_sync`: get, update, or clean up the Reference mods: the Workshop mods that the \
 user's mod repos list for study. It downloads the missing ones and deletes the dropped ones. It \
 finds and reads the lists itself, and they are not in the project folder, so call it directly, \

@@ -11,8 +11,9 @@ use serde::Deserialize;
 use serde_json::Map;
 
 use super::bridge::{Bridge, Setup};
+use super::cleanup::cleanup;
 use super::install::HANDLER_FOLDER;
-use super::launch::{Launched, launch};
+use super::launch::{Launched, find_mod, launch};
 #[cfg(test)]
 use super::settings::Settings;
 use super::{Error, Result};
@@ -27,6 +28,16 @@ pub(super) struct LaunchInput {
     #[serde(rename = "mod")]
     #[schemars(rename = "mod")]
     wanted: Option<String>,
+}
+
+/// The input of `workbench_cleanup`.
+#[derive(Deserialize, JsonSchema)]
+pub(super) struct CleanupInput {
+    /// The mod to clean up: its name in the project list of Workbench, for example
+    /// `TrainingRange`.
+    #[serde(rename = "mod")]
+    #[schemars(rename = "mod")]
+    wanted: String,
 }
 
 /// Gives the Workbench Tools to the server, with the settings from the environment.
@@ -69,7 +80,20 @@ fn router_with<S: Send + Sync + 'static>(bridge: Bridge) -> ToolRouter<S> {
     )
     .with_title("Start Workbench with a mod")
     .annotate(labels());
+    let workbench_cleanup = Tool::new(
+        "workbench_cleanup",
+        "Delete the Handler script of this plugin from one mod of the user, so that Workbench \
+         does not pack it with the mod. Call it before the user packs or publishes the mod. It \
+         deletes only the folder Scripts/WorkbenchGame/ReforgerBridge, then the folders \
+         Scripts/WorkbenchGame and Scripts when they are empty. It works when Workbench is \
+         closed. When the folder is not there, it deletes nothing and says that the mod is \
+         ready to pack. An unknown mod name gives the names of the user's mods.",
+        schema_for_type::<CleanupInput>(),
+    )
+    .with_title("Delete the Handler script from a mod")
+    .annotate(labels());
     let launch_bridge = Arc::clone(&bridge);
+    let cleanup_bridge = Arc::clone(&bridge);
     ToolRouter::new()
         .with_route((workbench_status, move || {
             let bridge = Arc::clone(&bridge);
@@ -82,12 +106,19 @@ fn router_with<S: Send + Sync + 'static>(bridge: Bridge) -> ToolRouter<S> {
                 async move { answer(launch_answer(&bridge, input.wanted.as_deref()).await) }
             },
         ))
+        .with_route((
+            workbench_cleanup,
+            move |Parameters(input): Parameters<CleanupInput>| {
+                let bridge = Arc::clone(&cleanup_bridge);
+                async move { answer(cleanup_answer(&bridge, &input.wanted)) }
+            },
+        ))
 }
 
 // region:    --- Support
 
-/// The Tool labels of the Workbench Tools: they copy and overwrite the Handler script, a second
-/// call has no more effect, and they do not use the internet.
+/// The Tool labels of the Workbench Tools: they copy, overwrite, or delete the Handler script, a
+/// second call has no more effect, and they do not use the internet.
 fn labels() -> ToolAnnotations {
     ToolAnnotations::new()
         .read_only(false)
@@ -130,8 +161,8 @@ async fn report(bridge: &Bridge) -> Result<String> {
     };
     Ok(format!(
         "Workbench is running, and {loaded}. {project} The Workbench Tools can use it now. Before \
-         you pack or publish the mod, delete its folder {HANDLER_FOLDER}: Workbench packs the \
-         Handler script with the mod."
+         you pack or publish the mod, call workbench_cleanup to delete its folder \
+         {HANDLER_FOLDER}: Workbench packs the Handler script with the mod."
     ))
 }
 
@@ -162,6 +193,26 @@ async fn launch_answer(bridge: &Bridge, wanted: Option<&str>) -> Answer {
         .await
         .map(|text| format!("{started} {text}"))
         .map_err(|error| format!("{started} {error}"))
+}
+
+/// The answer of `workbench_cleanup`. A mod with no Handler script folder is ready to pack, so
+/// that is a normal answer.
+fn cleanup_answer(bridge: &Bridge, wanted: &str) -> Result<String> {
+    let project = find_mod(bridge, wanted)?;
+    let place = format!("mod {} in {}", project.id, project.folder.display());
+    if cleanup(&project.folder)? {
+        Ok(format!(
+            "workbench_cleanup deleted the folder {HANDLER_FOLDER} with the Handler script from \
+             the {place}. The mod is ready to pack or publish. Workbench keeps the Handler script \
+             loaded until its next script reload. When a Workbench Tool needs the Handler script \
+             again, workbench_status copies it back."
+        ))
+    } else {
+        Ok(format!(
+            "The {place} has no folder {HANDLER_FOLDER}, so workbench_cleanup deleted nothing. The \
+             mod is ready to pack or publish."
+        ))
+    }
 }
 
 /// The start of the answer when `workbench_launch` started Steam.

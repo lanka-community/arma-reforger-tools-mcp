@@ -23,9 +23,7 @@ const HANDLER_FILE: &str = "ReforgerBridge.c";
 /// there, and returns the path of the file. It writes a temp file in the same folder first, then
 /// renames it, so a stopped call never leaves half a file.
 pub(super) fn install(project: &Path) -> Result<PathBuf> {
-    let folder = HANDLER_FOLDER
-        .split('/')
-        .fold(project.to_owned(), |path, part| path.join(part));
+    let folder = handler_folder(project);
     let file = folder.join(HANDLER_FILE);
     if fs::read_to_string(&file).is_ok_and(|text| text == HANDLER_SCRIPT) {
         return Ok(file);
@@ -39,6 +37,13 @@ pub(super) fn install(project: &Path) -> Result<PathBuf> {
     fs::write(&temp, HANDLER_SCRIPT).map_err(failed)?;
     fs::rename(&temp, &file).map_err(failed)?;
     Ok(file)
+}
+
+/// The folder of the bridge in the project folder `project`.
+pub(super) fn handler_folder(project: &Path) -> PathBuf {
+    HANDLER_FOLDER
+        .split('/')
+        .fold(project.to_owned(), |path, part| path.join(part))
 }
 
 // region:    --- Tests

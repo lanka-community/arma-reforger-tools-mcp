@@ -77,6 +77,12 @@ pub enum Error {
         err: std::io::Error,
     },
 
+    /// `workbench_cleanup` could not delete `path`.
+    CleanupFailed {
+        path: PathBuf,
+        err: std::io::Error,
+    },
+
     // -- The start
     /// `workbench_launch` did not start Workbench, or Workbench did not get ready.
     NoStart {
@@ -246,6 +252,13 @@ impl fmt::Display for Error {
             ),
             Self::NoProject { reason } => write!(f, "{reason}"),
             Self::NoStart { reason } => write!(f, "{reason}"),
+            Self::CleanupFailed { path, err } => write!(
+                f,
+                "workbench_cleanup could not delete {}: {err}. Close the programs that use a \
+                 file in it, check that the folder is not read-only, then call \
+                 workbench_cleanup again.",
+                path.display()
+            ),
             Self::InstallFailed { folder, err } => write!(
                 f,
                 "The bridge could not copy the Handler script into {}: {err}. Check that the \
@@ -395,7 +408,9 @@ impl fmt::Display for Garbled {
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
-            Self::InstallFailed { err, .. } | Self::ConnectionLost { err, .. } => Some(err),
+            Self::InstallFailed { err, .. }
+            | Self::CleanupFailed { err, .. }
+            | Self::ConnectionLost { err, .. } => Some(err),
             Self::NotRunning { .. }
             | Self::HandlerNotLoaded { .. }
             | Self::CompileFailed { .. }

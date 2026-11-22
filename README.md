@@ -34,6 +34,7 @@ claude plugin install reforger@reforger-local
 | `game_read`        | Returns the full text of one file inside the `.pak` files of the game or of a downloaded Workshop mod.         |
 | `workbench_status` | Checks the connection to a running Workbench, copies the Handler script into the open mod, and names that mod. |
 | `workbench_launch` | Starts Workbench with one of your mods open, finds it through Steam, and waits until the scripts are compiled. |
+| `workbench_cleanup` | Deletes the Handler script folder from one of your mods, so that Workbench does not pack it. Works when Workbench is closed. |
 | `reference_sync`   | Downloads the Reference mods that your mod repos list, and deletes the ones it downloaded that no list has.    |
 | `guid_generate`    | Makes a new random GUID for the `.gproj` file of a new mod: 16 hex characters in upper case.                   |
 
