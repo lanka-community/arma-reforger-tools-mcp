@@ -132,3 +132,10 @@
 - With no input, it lists the game and each downloaded mod with its ID, file count, and full size. `source` lists the files of one of them, each with its size, and `path` counts and lists only the files with that part in their path.
 - The sizes come from the FILE table that `pak.rs` already reads, so the Tool unpacks no file and uses the same index as `game_find`.
 - The source match moved to `Index::is_source`, which `game_read` uses too. It now also takes a mod ID.
+
+## Setup of the settings (#50)
+
+- New command `reforger setup`. It is not a Port: the old project had no setup. It finds the game folder and the folder of the downloaded mods through Steam, shows them with each file it read, and writes them to the `env` of `~/.claude/settings.json` only after the user types `y`.
+- New shared folder `src/steam/` with a real parser of the Steam KeyValues format. `workbench_launch` now uses it too, in place of its own reader of `"key" "value"` lines, which did not read a `\"` inside a value. A damaged file gives an error line, not a crash.
+- The mod folder comes from `-addonDownloadDir` in the launch options of the game in `localconfig.vdf`. ADR 0010 did not read that file for `workbench_launch`; the setup reads it only to suggest a value.
+- The `game_find`, `game_read`, and `game_list` error for a missing or wrong `REFORGER_GAME_PATH` names the game folder that Steam names, and the setup command. The server still reads its settings only from environment variables.

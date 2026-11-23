@@ -13,6 +13,8 @@ mod mod_folder;
 #[path = "reference-mods/mod.rs"]
 mod reference_mods;
 mod server;
+mod setup;
+mod steam;
 mod wiki;
 mod workbench;
 mod workbench_documents;
@@ -23,8 +25,20 @@ mod test_support;
 
 // endregion: --- Modules
 
+use std::io::Write as _;
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // `reforger setup` is a command for a person in a terminal, not the MCP server, so only it
+    // gets stdout. It writes the settings file only after the person types `y`.
+    if std::env::args().nth(1).as_deref() == Some("setup") {
+        if let Err(err) = setup::run_from_env(&mut std::io::stdin().lock(), &mut std::io::stdout())
+        {
+            writeln!(std::io::stderr(), "{err}")?;
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     // Logs go to stderr, because stdout carries the MCP messages. Claude Code saves them in
     // ~/.cache/claude-cli-nodejs/<project>/mcp-logs-plugin-reforger-reforger/.
     tracing_subscriber::fmt()

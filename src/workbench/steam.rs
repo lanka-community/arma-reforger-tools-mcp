@@ -1,7 +1,4 @@
-//! Finds Arma Reforger Tools and the game through Steam. The Windows registry names the Steam
-//! folder (`HKCU\Software\Valve\Steam`, value `SteamPath`). In it, `steamapps/libraryfolders.vdf`
-//! names each library folder and the apps in it, and `steamapps/appmanifest_<app>.acf` in a
-//! library names the folder of the app under `steamapps/common`.
+//! Finds Arma Reforger Tools and the game through Steam, with the libraries of `crate::steam`.
 //!
 //! Workbench needs a running Steam with a logged-in user, and it does not start Steam itself. On
 //! Workbench 1.6 without Steam, it logs `SteamAPI_Init failed. Is Steam running?` and closes.
@@ -9,17 +6,12 @@
 //! `HKCU\Software\Valve\Steam\ActiveProcess`. Steam does not always write 0 when it closes, so
 //! the check also needs a running `steam.exe` in `tasklist.exe`.
 
-use std::fs;
-use std::path::PathBuf;
-
 use tokio::process::Command;
 
+use super::Result;
 use super::error::NoStart;
-use super::{Error, Result};
 use crate::host_path::host_path;
-
-/// The registry key of Steam for the user.
-const STEAM_KEY: &str = r"HKCU\Software\Valve\Steam";
+use crate::steam::{GAME_APP, Libraries, steam_from_registry};
 
 /// The registry key that Steam writes while it runs.
 const ACTIVE_PROCESS_KEY: &str = r"HKCU\Software\Valve\Steam\ActiveProcess";
@@ -53,7 +45,7 @@ impl App {
     pub(super) fn id(self) -> u32 {
         match self {
             Self::Tools => 1_874_910,
-            Self::Game => 1_874_880,
+            Self::Game => GAME_APP,
         }
     }
 
@@ -71,18 +63,27 @@ impl App {
 pub(super) async fn find_install(steam: Option<&str>) -> Result<Install> {
     let steam = match steam {
         Some(steam) => steam.to_owned(),
-        None => steam_from_registry().await?,
+        None => tokio::task::spawn_blocking(steam_from_registry)
+            .await
+            .ok()
+            .flatten()
+            .ok_or(NoStart::NoSteam)?,
     };
     if !host_path(&steam).join(STEAM_EXE).is_file() {
         return Err(NoStart::NoSteam.into());
     }
-    let library = fs::read_to_string(host_path(&steam).join("steamapps/libraryfolders.vdf"))
-        .map_err(|_| NoStart::NoSteam)?;
-    let (tools, tools_here) = app_folder(&library, App::Tools)?;
-    if !tools_here.join(WORKBENCH_EXE.replace('\\', "/")).is_file() {
+    let libraries = Libraries::read(&host_path(&steam)).map_err(|_| NoStart::NoSteam)?;
+    let app_folder = |app: App| {
+        libraries
+            .app_folder(app.id())
+            .map_err(|_| NoStart::NotInstalled { app })
+    };
+    let tools = app_folder(App::Tools)?;
+    if !tools.here.join(WORKBENCH_EXE.replace('\\', "/")).is_file() {
         return Err(NoStart::NotInstalled { app: App::Tools }.into());
     }
-    let (game, _) = app_folder(&library, App::Game)?;
+    let game = app_folder(App::Game)?.windows;
+    let tools = tools.windows;
     Ok(Install {
         workbench: format!(r"{tools}\{WORKBENCH_EXE}"),
         game,
@@ -116,52 +117,6 @@ pub(super) async fn steam_logged_in() -> bool {
 
 // region:    --- Support
 
-/// The Steam folder from the registry, in Windows form.
-async fn steam_from_registry() -> Result<String> {
-    let output = Command::new("reg.exe")
-        .args(["query", STEAM_KEY, "/v", "SteamPath"])
-        .output()
-        .await
-        .map_err(|_| NoStart::NoSteam)?;
-    String::from_utf8_lossy(&output.stdout)
-        .lines()
-        .find_map(|line| Some(line.split_once("REG_SZ")?.1.trim().to_owned()))
-        .filter(|path| !path.is_empty())
-        .ok_or_else(|| NoStart::NoSteam.into())
-}
-
-/// The folder of `app` in Windows form and on this computer, from the text of
-/// `libraryfolders.vdf`.
-fn app_folder(library: &str, app: App) -> Result<(String, PathBuf)> {
-    let not_installed = || Error::from(NoStart::NotInstalled { app });
-    let id = app.id().to_string();
-    let mut path = None;
-    let mut found = None;
-    for (key, value) in library.lines().filter_map(pair) {
-        if key == "path" {
-            path = Some(value);
-        } else if key == id {
-            found = path.take();
-            break;
-        }
-    }
-    let root = found.ok_or_else(not_installed)?;
-    let manifest = fs::read_to_string(
-        host_path(&root).join(format!("steamapps/appmanifest_{}.acf", app.id())),
-    )
-    .map_err(|_| not_installed())?;
-    let folder = manifest
-        .lines()
-        .filter_map(pair)
-        .find_map(|(key, value)| (key == "installdir").then_some(value))
-        .ok_or_else(not_installed)?;
-    let here = host_path(&root).join("steamapps/common").join(&folder);
-    if !here.is_dir() {
-        return Err(not_installed());
-    }
-    Ok((format!(r"{root}\steamapps\common\{folder}"), here))
-}
-
 /// True when the output of `reg.exe query` names an `ActiveUser` other than 0.
 fn active_user(output: &str) -> bool {
     output
@@ -181,19 +136,11 @@ fn steam_process(output: &str) -> bool {
     })
 }
 
-/// The key and the value of a line `"key"  "value"` in a Steam file. A `\\` in the value is one
-/// `\`.
-fn pair(line: &str) -> Option<(String, String)> {
-    let mut parts = line.split('"').skip(1).step_by(2);
-    let key = parts.next()?;
-    let value = parts.next()?;
-    Some((key.to_owned(), value.replace(r"\\", r"\")))
-}
-
 /// The installed apps of a Steam folder that tests write, in the formats that Steam writes.
 #[cfg(test)]
-pub(super) fn write_steam(steam: &std::path::Path, apps: &[App]) -> PathBuf {
+pub(super) fn write_steam(steam: &std::path::Path, apps: &[App]) -> std::path::PathBuf {
     use std::fmt::Write as _;
+    use std::fs;
 
     let mut library = format!(
         "\"libraryfolders\"\n{{\n\t\"0\"\n\t{{\n\t\t\"path\"\t\t\"{}\"\n\t\t\"apps\"\n\t\t{{\n",
@@ -234,22 +181,6 @@ pub(super) fn write_steam(steam: &std::path::Path, apps: &[App]) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn reads_the_library_file_that_steam_wrote() {
-        // -- Setup & Fixtures
-        // The start of libraryfolders.vdf of Steam 2026 with the library D:\Games.
-        let library = "\"libraryfolders\"\n{\n\t\"0\"\n\t{\n\t\t\"path\"\t\t\"D:\\\\Games\"\n\t\t\"apps\"\n\t\t{\n\t\t\t\"1874910\"\t\t\"725716903\"\n";
-
-        // -- Exec & Check
-        assert_eq!(
-            library.lines().filter_map(pair).collect::<Vec<_>>(),
-            [
-                ("path".to_owned(), r"D:\Games".to_owned()),
-                ("1874910".to_owned(), "725716903".to_owned())
-            ]
-        );
-    }
 
     #[test]
     fn reads_the_logged_in_user_from_the_registry() {

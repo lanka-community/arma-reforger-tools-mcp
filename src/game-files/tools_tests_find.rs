@@ -5,6 +5,8 @@ use std::fs;
 use serde_json::json;
 
 use super::*;
+use crate::steam::SteamSearch;
+use crate::steam::sample_steam::write_sample_steam;
 use crate::test_support::{self};
 
 #[tokio::test]
@@ -251,6 +253,89 @@ async fn names_the_setting_when_the_game_folder_has_no_pak_files() {
             folder.display(),
             folder.display()
         )),
+        "{}",
+        answer.text
+    );
+}
+
+#[tokio::test]
+async fn names_the_game_folder_of_steam_when_the_game_folder_is_not_set() {
+    // -- Setup & Fixtures
+    let out = out_folder("names_the_game_folder_of_steam_when_the_game_folder_is_not_set");
+    let steam = out.join("Games");
+    let found = write_sample_steam(&steam, &out.join("DownloadedMods"));
+    let settings = Settings {
+        steam: Some(SteamSearch::Folder(steam.display().to_string())),
+        ..Settings::default()
+    };
+
+    // -- Exec
+    let answer = find_in(settings, json!({ "query": "Camera" })).await;
+
+    // -- Check
+    assert!(answer.is_error);
+    assert_eq!(
+        answer.text,
+        format!(
+            "REFORGER_GAME_PATH is not set. Found the game at {}. Set REFORGER_GAME_PATH to it, \
+             or ask the user to run the setup in a terminal: {}. Then restart Claude Code.",
+            found.display(),
+            crate::setup::command()
+        )
+    );
+}
+
+#[tokio::test]
+async fn names_the_game_folder_of_steam_when_the_game_folder_is_wrong() {
+    // -- Setup & Fixtures
+    let out = out_folder("names_the_game_folder_of_steam_when_the_game_folder_is_wrong");
+    let steam = out.join("Games");
+    let found = write_sample_steam(&steam, &out.join("DownloadedMods"));
+    let wrong = out.join("Wrong");
+    let settings = Settings {
+        game: Some(wrong.display().to_string()),
+        steam: Some(SteamSearch::Folder(steam.display().to_string())),
+        ..Settings::default()
+    };
+
+    // -- Exec
+    let answer = find_in(settings, json!({ "query": "Camera" })).await;
+
+    // -- Check
+    assert!(answer.is_error);
+    assert!(
+        answer.text.ends_with(&format!(
+            "has no addons folder with .pak files. Found the game at {}. Set REFORGER_GAME_PATH \
+             to it, or ask the user to run the setup in a terminal: {}. Then restart Claude Code.",
+            found.display(),
+            crate::setup::command()
+        )),
+        "{}",
+        answer.text
+    );
+}
+
+#[tokio::test]
+async fn names_no_other_folder_when_steam_names_the_same_wrong_game_folder() {
+    // -- Setup & Fixtures
+    let out = out_folder("names_no_other_folder_when_steam_names_the_same_wrong_game_folder");
+    let steam = out.join("Games");
+    let found = write_sample_steam(&steam, &out.join("DownloadedMods"));
+    let settings = Settings {
+        game: Some(found.display().to_string()),
+        steam: Some(SteamSearch::Folder(steam.display().to_string())),
+        ..Settings::default()
+    };
+
+    // -- Exec
+    let answer = find_in(settings, json!({ "query": "Camera" })).await;
+
+    // -- Check
+    assert!(
+        answer.text.ends_with(
+            "Set REFORGER_GAME_PATH to the game folder, the folder that holds ArmaReforger.exe \
+             and addons. Then restart Claude Code."
+        ),
         "{}",
         answer.text
     );

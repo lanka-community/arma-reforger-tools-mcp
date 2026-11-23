@@ -1,0 +1,27 @@
+"UserLocalConfigStore"
+{
+	"Software"
+	{
+		"Valve"
+		{
+			"Steam"
+			{
+				"apps"
+				{
+					"1874880"
+					{
+						"cloud"
+						{
+							"last_sync_state"		"synchronized"
+						}
+						"LaunchOptions"		"-addonDownloadDir \"D:\\DownloadedMods\" -addonsDir \"D:\\DownloadedMods\""
+					}
+					"1874910"
+					{
+						"LaunchOptions"		"-addonDownloadDir \"D:\\DownloadedMods\""
+					}
+				}
+			}
+		}
+	}
+}

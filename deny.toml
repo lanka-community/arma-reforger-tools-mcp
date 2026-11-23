@@ -25,6 +25,9 @@ exceptions = [
     { allow = ["MPL-2.0"], crate = "cssparser-macros" }, # via scraper, in xtask
     { allow = ["MPL-2.0"], crate = "dtoa-short" },       # via scraper, in xtask
     { allow = ["MPL-2.0"], crate = "selectors" },        # via scraper, in xtask
+    # Zlib is permissive. serde_json needs foldhash for "preserve_order", which keeps the key
+    # order of settings.json when the setup writes it.
+    { allow = ["Zlib"], crate = "foldhash" },
 ]
 
 [bans]

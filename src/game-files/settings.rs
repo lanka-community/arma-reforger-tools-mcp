@@ -3,6 +3,7 @@
 
 use std::path::PathBuf;
 
+use crate::steam::SteamSearch;
 use crate::workbench_documents::{DOCUMENTS_SETTING, workbench_documents};
 
 /// The game folder, the folder that holds `ArmaReforger.exe` and `addons`.
@@ -21,6 +22,11 @@ pub(super) struct Settings {
     /// The Workbench folder in Documents, where Workbench downloads mods to its `addons` folder.
     /// `None`: no setting, and no such folder found.
     pub(super) documents: Option<PathBuf>,
+
+    /// Where the error of a missing or wrong game folder looks for the game through Steam, to
+    /// name it. `None`: it does not look. The Tools never use the found folder by themselves
+    /// (ADR 0007).
+    pub(super) steam: Option<SteamSearch>,
 }
 
 impl Settings {
@@ -31,6 +37,7 @@ impl Settings {
             game: read(GAME_SETTING),
             profile: read(PROFILE_SETTING),
             documents: workbench_documents(read(DOCUMENTS_SETTING).as_deref()),
+            steam: Some(SteamSearch::Registry),
         }
     }
 }

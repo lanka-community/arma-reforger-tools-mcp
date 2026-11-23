@@ -51,6 +51,7 @@ fn settings(game: &Path, profile: Option<&Path>) -> Settings {
         game: Some(game.display().to_string()),
         profile: profile.map(|p| p.display().to_string()),
         documents: None,
+        steam: None,
     }
 }
 
