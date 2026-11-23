@@ -106,7 +106,7 @@ fn lookup<'a>(index: &'a Index, input: &ReadInput) -> Result<Found<'a>, String> 
         Some(wanted) => matches
             .iter()
             .copied()
-            .find(|file| is_source(index, file, wanted)),
+            .find(|file| index.is_source(file.source, wanted)),
     };
     let Some(file) = file else {
         let sources = sources_of(index, &matches).join(", ");
@@ -200,16 +200,6 @@ fn clean_path(raw: &str) -> (String, Option<&str>) {
     }
     let path = path.replace('\\', "/");
     (path.trim_matches('/').to_owned(), source)
-}
-
-/// Whether `file` comes from the source that the user named `wanted`: "game", "tvtLobby", or
-/// "mod tvtLobby". Capital letters do not matter.
-fn is_source(index: &Index, file: &GameFile, wanted: &str) -> bool {
-    let name = index.source_of(file);
-    name.eq_ignore_ascii_case(wanted)
-        || name
-            .strip_prefix("mod ")
-            .is_some_and(|name| name.eq_ignore_ascii_case(wanted))
 }
 
 /// The source names of `files`, each once, in the order of `files`.

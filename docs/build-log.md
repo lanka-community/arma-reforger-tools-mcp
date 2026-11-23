@@ -125,3 +125,10 @@
 - A real download on 2026-11-22: Main Addon is 5.2 MB in `SampleMod-MainAddon_5614E48162D7B84F`, and Modded Script is 0.35 MB in `SampleMod-ModdedScript_5614E482B37103E5`. The source names in `game_find` are `SampleMod-MainAddon` and `SampleMod-ModdedScript`. Main Addon lists the other samples as dependencies, but `reference_sync` downloads only the listed mods, so the list has both.
 - The `.gproj` template now has the empty `Configurations` blocks of the sample mods, one for each platform.
 - A test in `src/reference-mods/tools_tests_lists.rs` reads the template as a list and checks it against the folder names of the real download.
+
+## game_list (#90)
+
+- New Tool `game_list` in `game-files`. It is not a Port: the old project had no Tool that lists the downloaded mods, and the Port ledger has no row for it.
+- With no input, it lists the game and each downloaded mod with its ID, file count, and full size. `source` lists the files of one of them, each with its size, and `path` counts and lists only the files with that part in their path.
+- The sizes come from the FILE table that `pak.rs` already reads, so the Tool unpacks no file and uses the same index as `game_find`.
+- The source match moved to `Index::is_source`, which `game_read` uses too. It now also takes a mod ID.

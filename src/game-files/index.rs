@@ -22,14 +22,24 @@ const GAME: &str = "game";
 pub(super) struct Index {
     pub(super) files: Vec<GameFile>,
 
-    /// `GAME` first, then the name of each mod.
-    pub(super) sources: Vec<String>,
+    /// `GAME` first, then each mod.
+    pub(super) sources: Vec<Source>,
 
     /// Each line says what the search did not cover and how to fix it.
     pub(super) notes: Vec<String>,
 
     /// The mods that the index was built from. When the mods on disk differ, the index is old.
     pub(super) mods: ModsOnDisk,
+}
+
+/// Where Game files come from: the game, or one downloaded mod.
+pub(super) struct Source {
+    /// `GAME`, or the mod name from its folder `<Name>_<ID>`.
+    pub(super) name: String,
+
+    /// The Workshop ID from the mod folder name, or `None` for the game and for a folder that is
+    /// not `<Name>_<ID>`.
+    pub(super) id: Option<String>,
 }
 
 /// The mod folders in both `addons` folders, each with its .pak files. Two lists are equal when
@@ -96,6 +106,11 @@ pub(super) struct GameFile {
 }
 
 impl GameFile {
+    /// Its full size in bytes after unpacking, from the FILE table of its .pak file.
+    pub(super) fn len(&self) -> u32 {
+        self.data.len()
+    }
+
     /// Reads its full content from its .pak file.
     pub(super) fn read(&self) -> Result<Vec<u8>> {
         read_file(&mut File::open(&self.pak)?, self.data)
@@ -118,7 +133,10 @@ pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<I
     }
     let mut index = Index {
         files: Vec::new(),
-        sources: vec![GAME.to_owned()],
+        sources: vec![Source {
+            name: GAME.to_owned(),
+            id: None,
+        }],
         notes: Vec::new(),
         mods: ModsOnDisk(Vec::new()),
     };
@@ -131,7 +149,7 @@ pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<I
             continue;
         }
         let paks: Vec<PathBuf> = paks.iter().map(|pak| pak.path.clone()).collect();
-        index.sources.push(mod_name(folder));
+        index.sources.push(mod_source(folder));
         index.add(index.sources.len() - 1, &paks, cancel)?;
     }
     index.mods = mods;
@@ -196,15 +214,43 @@ fn mod_folders(settings: &Settings) -> ModFolders {
 impl Index {
     /// Where `file` comes from: "game", or "mod tvtLobby".
     pub(super) fn source_of(&self, file: &GameFile) -> String {
-        match self.sources.get(file.source) {
-            Some(name) if file.source > 0 => format!("mod {name}"),
+        self.source_name(file.source)
+    }
+
+    /// The name of the source at `source`: "game", or "mod tvtLobby".
+    pub(super) fn source_name(&self, source: usize) -> String {
+        match self.sources.get(source) {
+            Some(Source { name, .. }) if source > 0 => format!("mod {name}"),
             _ => GAME.to_owned(),
         }
     }
 
+    /// Whether the source at `source` is the one that the user named `wanted`: "game", a mod
+    /// name such as "tvtLobby" or "mod tvtLobby", or a mod ID. Capital letters do not matter.
+    pub(super) fn is_source(&self, source: usize, wanted: &str) -> bool {
+        let Some(Source { name, id }) = self.sources.get(source) else {
+            return false;
+        };
+        let wanted = wanted.trim();
+        let name_wanted = wanted.strip_prefix("mod ").unwrap_or(wanted).trim();
+        if source == 0 {
+            return wanted.eq_ignore_ascii_case(GAME);
+        }
+        name_wanted.eq_ignore_ascii_case(name)
+            || id
+                .as_deref()
+                .is_some_and(|id| id.eq_ignore_ascii_case(wanted))
+    }
+
     /// What the search covered: "the game", or "the game and 2 mods (tvtLobby, Other)".
     pub(super) fn searched(&self) -> String {
-        let mods = self.sources.get(1..).unwrap_or_default();
+        let mods: Vec<&str> = self
+            .sources
+            .get(1..)
+            .unwrap_or_default()
+            .iter()
+            .map(|source| source.name.as_str())
+            .collect();
         match mods.len() {
             0 => "the game".to_owned(),
             1 => format!("the game and 1 mod ({})", mods.join(", ")),
@@ -291,12 +337,19 @@ fn mod_key(folder: &Path) -> String {
     }
 }
 
-/// The name of a mod from its folder `<Name>_<ID>`, or else the whole folder name.
-fn mod_name(folder: &Path) -> String {
+/// The name and ID of a mod from its folder `<Name>_<ID>`, or else the whole folder name with no
+/// ID.
+fn mod_source(folder: &Path) -> Source {
     let folder = folder.file_name().unwrap_or_default().to_string_lossy();
     match ModFolder::parse(&folder) {
-        Some(parts) => parts.name.to_owned(),
-        None => folder.into_owned(),
+        Some(parts) => Source {
+            name: parts.name.to_owned(),
+            id: Some(parts.id.to_owned()),
+        },
+        None => Source {
+            name: folder.into_owned(),
+            id: None,
+        },
     }
 }
 

@@ -14,6 +14,9 @@ mod find;
 #[path = "tools_tests_read.rs"]
 mod read;
 
+#[path = "tools_tests_list.rs"]
+mod list;
+
 // -- Test Support
 
 /// Three scripts from the game, and one prefab.
@@ -35,6 +38,12 @@ async fn find_in(settings: Settings, arguments: serde_json::Value) -> Answer {
     let tools: ToolRouter<Server> = router(settings);
     let client = test_support::connect(tools).await;
     test_support::call(&client, "game_find", arguments).await
+}
+
+async fn list_in(settings: Settings, arguments: serde_json::Value) -> Answer {
+    let tools: ToolRouter<Server> = router(settings);
+    let client = test_support::connect(tools).await;
+    test_support::call(&client, "game_list", arguments).await
 }
 
 fn settings(game: &Path, profile: Option<&Path>) -> Settings {

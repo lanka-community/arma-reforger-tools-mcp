@@ -22,3 +22,6 @@
 {"question":"I put Bohemia's sample mods in the reference-mods.jsonl of my new mod. Download them now.","tools":["reference_sync"]}
 {"question":"I am making a new mod by hand. What ID do I put in the GUID field of my .gproj file?","tools":["guid_generate"]}
 {"question":"I am setting up a Reforger addon from scratch, and its project file wants a unique identifier. Can you come up with one for me?","tools":["guid_generate"]}
+{"question":"Which Workshop mods do I have downloaded, and how big is each one?","tools":["game_list"]}
+{"question":"How many bytes of scripts does each of my downloaded Reforger mods have?","tools":["game_list"],"args":{"path":"scripts"}}
+{"question":"Show me every file of the downloaded mod tvtLobby with the size of each file.","tools":["game_list"],"args":{"source":"tvtLobby"}}
