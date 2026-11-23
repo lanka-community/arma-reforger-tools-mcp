@@ -33,8 +33,9 @@ Workbench downloaded. They are inside .pak archives, so grep, find, and file sea
 them, and they are not in the project folder. When the user asks for the script of a class, \
 call `game_find` directly with the class name as `query`.
 - `game_read`: open one file of the game or of a downloaded mod by its `path`, and get its full \
-text. When the user gives the path of a file of the game or of a Workshop mod, call `game_read` \
-directly with that path, not Read or find.
+text. When the user gives a file path and names a mod or the game, call `game_read` directly \
+with that path. The file is inside a .pak archive, so Read, cat, and find cannot open it. Do not \
+call `game_find` first: a wrong path gives the closest real paths.
 - `game_list`: the Workshop mods that Workbench downloaded, each with its ID, file count, and \
 size. For the files of one mod with the size of each, call it with the mod name as `source`. For \
 the size of one kind of file, call it directly with a part of their path as `path`: `path` \
