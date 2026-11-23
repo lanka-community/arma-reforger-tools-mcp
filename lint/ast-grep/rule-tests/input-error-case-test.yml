@@ -1,0 +1,9 @@
+id: input-error-case
+valid:
+  - "enum Error {\n /// Claude cancelled the call.\n Cancelled }"
+  - "enum Error { NoGamePaks { value: String, folder: PathBuf } }"
+  - "struct Input { wanted: String }"
+invalid:
+  - "enum NoStart { UnknownMod { tool: ModTool, wanted: String, names: Vec<String> } }"
+  - "enum NoCleanup {\n /// Claude gave an empty `mod`.\n ModRequired { names: Vec<String> } }"
+  - "enum Error {\n /// The project list has no mod with the name that Claude named.\n Unknown }"

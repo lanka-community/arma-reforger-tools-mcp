@@ -1,0 +1,27 @@
+id: input-error-case
+language: rust
+severity: error
+message: A case of an error enum holds a wrong input from Claude
+note: |
+  docs/agents/rust.md, Errors: "A wrong input from Claude is not a Rust error." The Tool returns
+  `crate::server::Answer`, and its `Err` is the hint text. Keep the input error out of the error
+  enum: return it as its own type, for example `WrongMod` in src/workbench/mod_lookup.rs, and turn
+  it into the hint text in the Tool. A case of the error enum is a failure inside the Tool.
+  This check finds an input error by its signs: a field `wanted` (the name of a Tool input value
+  in this repo), or a doc comment that says Claude gave, named, or sent the value.
+rule:
+  any:
+    - kind: field_declaration
+      has:
+        field: name
+        regex: ^wanted$
+      inside:
+        kind: enum_variant_list
+        stopBy: end
+    - kind: line_comment
+      regex: (?i)\bClaude (gave|named|sent|typed)\b|\bfrom Claude\b|\bwrong input\b
+      inside:
+        kind: enum_variant_list
+        stopBy: end
+files:
+  - src/**/error.rs
