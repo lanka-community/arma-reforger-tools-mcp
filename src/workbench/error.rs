@@ -106,9 +106,6 @@ pub enum NoProject {
 /// Why `workbench_cleanup` did not delete the Handler script.
 #[derive(Debug)]
 pub enum NoCleanup {
-    /// Claude gave an empty `mod`. `names`: the mods of the project list.
-    ModRequired { names: Vec<String> },
-
     /// It could not delete `path`.
     Failed { path: PathBuf, err: std::io::Error },
 }
@@ -133,18 +130,6 @@ pub enum NoStart {
         app: App,
     },
 
-    /// The project list has no mod with the name that Claude gave to `tool`.
-    UnknownMod {
-        tool: ModTool,
-        wanted: String,
-        names: Vec<String>,
-    },
-
-    /// Claude gave no mod, and the project list has more than one.
-    ChooseMod {
-        names: Vec<String>,
-    },
-
     /// PowerShell could not start Workbench.
     StartFailed {
         err: std::io::Error,
@@ -165,13 +150,6 @@ pub enum NoStart {
         id: String,
         errors: Vec<String>,
     },
-}
-
-/// A Tool that finds a mod in the project list by the name that Claude gave.
-#[derive(Debug, Clone, Copy)]
-pub enum ModTool {
-    Launch,
-    Cleanup,
 }
 
 /// Why an answer is not a NET API answer.
@@ -281,15 +259,6 @@ impl fmt::Display for Error {
     }
 }
 
-impl fmt::Display for ModTool {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(match self {
-            Self::Launch => "workbench_launch",
-            Self::Cleanup => "workbench_cleanup",
-        })
-    }
-}
-
 impl fmt::Display for NoProject {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -326,21 +295,6 @@ impl fmt::Display for NoProject {
 impl fmt::Display for NoCleanup {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::ModRequired { names } if names.is_empty() => write!(
-                f,
-                "workbench_cleanup needs `mod`: the mod to clean up. The project list of \
-                 Workbench has no mods, so no mod has a Handler script to delete. If the mod is \
-                 not in the list, call workbench_launch without a mod to open the Workbench \
-                 launcher, and ask the user to add the mod there (Add Existing). Then call \
-                 workbench_cleanup again with `mod` set to it."
-            ),
-            Self::ModRequired { names } => write!(
-                f,
-                "workbench_cleanup needs `mod`: the mod to clean up. The project list of \
-                 Workbench has these mods: {}. Call workbench_cleanup again with `mod` set to \
-                 one of them.",
-                names.join(", ")
-            ),
             Self::Failed { path, err } => write!(
                 f,
                 "workbench_cleanup could not delete {}: {err}. Close the programs that use a \
@@ -382,28 +336,6 @@ impl fmt::Display for NoStart {
                 app.name(),
                 app.id(),
                 app.name()
-            ),
-            Self::UnknownMod { wanted, names, .. } if names.is_empty() => write!(
-                f,
-                "The project list of Workbench has no mod \"{wanted}\": it has no mods. Call \
-                 workbench_launch without a mod to open the Workbench launcher, and create the \
-                 mod there."
-            ),
-            Self::UnknownMod {
-                tool,
-                wanted,
-                names,
-            } => write!(
-                f,
-                "The project list of Workbench has no mod \"{wanted}\". Its mods: {}. Call \
-                 {tool} again with one of them.",
-                names.join(", ")
-            ),
-            Self::ChooseMod { names } => write!(
-                f,
-                "The project list of Workbench has more than one mod: {}. Call workbench_launch \
-                 again with `mod` set to one of them.",
-                names.join(", ")
             ),
             Self::StartFailed { err } => write!(
                 f,
@@ -477,9 +409,6 @@ impl std::error::Error for Error {
             | Self::BadPort { .. }
             | Self::NoWindowsHost
             | Self::DocumentsNotFound
-            | Self::NoCleanup {
-                reason: NoCleanup::ModRequired { .. },
-            }
             | Self::NoProject { .. }
             | Self::NoStart { .. } => None,
         }

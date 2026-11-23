@@ -7,6 +7,7 @@ mod cleanup;
 mod error;
 mod install;
 mod launch;
+mod mod_lookup;
 mod net;
 mod project;
 mod settings;

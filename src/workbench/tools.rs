@@ -13,7 +13,8 @@ use serde_json::Map;
 use super::bridge::{Bridge, Setup};
 use super::cleanup::cleanup;
 use super::install::HANDLER_FOLDER;
-use super::launch::{Launched, find_mod, launch};
+use super::launch::{Launched, launch};
+use super::mod_lookup::find_mod;
 #[cfg(test)]
 use super::settings::Settings;
 use super::{Error, Result};
@@ -166,11 +167,13 @@ async fn report(bridge: &Bridge) -> Result<String> {
     ))
 }
 
-/// The answer of `workbench_launch`: what it started, then the state of Workbench.
+/// The answer of `workbench_launch`: what it started, then the state of Workbench. A wrong `mod`
+/// input is an error answer with the hint, like a failure.
 async fn launch_answer(bridge: &Bridge, wanted: Option<&str>) -> Answer {
     let launched = launch(bridge, wanted)
         .await
-        .map_err(|error| error.to_string())?;
+        .map_err(|error| error.to_string())?
+        .map_err(|wrong| wrong.to_string())?;
     let started = match launched {
         Launched::AlreadyRunning => {
             "Workbench was running already, so workbench_launch started nothing.".to_owned()
@@ -196,11 +199,13 @@ async fn launch_answer(bridge: &Bridge, wanted: Option<&str>) -> Answer {
 }
 
 /// The answer of `workbench_cleanup`. A mod with no Handler script folder is ready to pack, so
-/// that is a normal answer.
-fn cleanup_answer(bridge: &Bridge, wanted: &str) -> Result<String> {
-    let project = find_mod(bridge, wanted)?;
+/// that is a normal answer. A wrong `mod` input is an error answer with the hint.
+fn cleanup_answer(bridge: &Bridge, wanted: &str) -> Answer {
+    let project = find_mod(bridge, wanted)
+        .map_err(|error| error.to_string())?
+        .map_err(|wrong| wrong.to_string())?;
     let place = format!("mod {} in {}", project.id, project.folder.display());
-    if cleanup(&project.folder)? {
+    if cleanup(&project.folder).map_err(|error| error.to_string())? {
         Ok(format!(
             "workbench_cleanup deleted the folder {HANDLER_FOLDER} with the Handler script from \
              the {place}. The mod is ready to pack or publish. Workbench keeps the Handler script \

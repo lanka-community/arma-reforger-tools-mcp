@@ -23,7 +23,7 @@ The `rmcp` API changes between versions. Copy from the working code here before 
 ## Errors
 
 - A Tool turns its result into the answer with `server::answer`: `Ok` gives a normal answer, and `Err` gives an error answer with the `Display` text of the error. The `tool-answer` check of ast-grep stops an error answer that is built in another way.
-- A wrong input from Claude is not a Rust error. Answer it as a Tool error with a hint (see `mcp.md`): the Tool returns `server::Answer`, and its `Err` is the hint text.
+- A wrong input from Claude is not a Rust error. Answer it as a Tool error with a hint (see `mcp.md`): the Tool returns `server::Answer`, and its `Err` is the hint text. When the logic below the Tool finds the wrong input, it returns its own type with a `Display` hint, not a case of `Error`. Example: `WrongMod` in `src/workbench/mod_lookup.rs`. The `input-error-case` check of ast-grep stops an error enum case with a field `wanted` or a doc comment that says Claude gave the value.
 - A failure inside a Tool, for example a missing file or a setting that is not set, is a case of the Capability's `Error` enum (shared `errors.md`). `server::answer` gives it as an error answer, and the error's `Display` text is the hint for Claude.
 - A Tool whose job is to report a state answers each state as a normal answer, also when another Tool gives that state as an error. Example: `workbench_status` answers "Workbench is not running" with `Ok`.
 - A Capability's `mod.rs` brings in `Error` and `Result` with `use error::{Error, Result};`, not `pub use`: ADR 0004 lets a Capability make only its `tools()` function public (and `Bridge` in `workbench`). This rule wins over "Its parent re-exports both" in the shared `errors.md`.
