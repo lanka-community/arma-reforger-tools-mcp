@@ -10,6 +10,7 @@ use tokio_util::sync::CancellationToken;
 
 use super::find::{FindInput, find};
 use super::index::{Index, ModsOnDisk, build};
+use super::list::{ListInput, list};
 use super::read::{ReadInput, read};
 use super::settings::Settings;
 use super::{Error, Result};
@@ -27,6 +28,7 @@ pub(super) fn router<S: Send + Sync + 'static>(settings: Settings) -> ToolRouter
         index: Mutex::new(None),
     });
     let read_files = Arc::clone(&files);
+    let list_files = Arc::clone(&files);
     let game_find = Tool::new(
         "game_find",
         "Find Game files, the files inside the .pak archives of the installed game and of the \
@@ -52,7 +54,31 @@ pub(super) fn router<S: Send + Sync + 'static>(settings: Settings) -> ToolRouter
     )
     .with_title("Open a Game file")
     .annotate(read_only_labels());
+    let game_list = Tool::new(
+        "game_list",
+        "List the Workshop mods that Workbench downloaded, and the game, each with its mod ID, \
+         file count, and full size in bytes. With source, list the files of one mod or of the \
+         game, each with its full size. With path, count only the files with that part in their \
+         path: \"scripts/\" gives the size of the scripts of each mod. To find a file by its name, call game_find.",
+        schema_for_type::<ListInput>(),
+    )
+    .with_title("List downloaded mods and file sizes")
+    .annotate(read_only_labels());
     ToolRouter::new()
+        .with_route((
+            game_list,
+            move |Parameters(input): Parameters<ListInput>, cancel: CancellationToken| {
+                let files = Arc::clone(&list_files);
+                async move {
+                    let index = files.index(cancel).await;
+                    answer(
+                        index
+                            .map_err(|error| error.to_string())
+                            .and_then(|index| list(&index, &input)),
+                    )
+                }
+            },
+        ))
         .with_route((
             game_read,
             move |Parameters(input): Parameters<ReadInput>, cancel: CancellationToken| {

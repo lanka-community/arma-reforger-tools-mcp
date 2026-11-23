@@ -35,6 +35,10 @@ call `game_find` directly with the class name as `query`.
 - `game_read`: open one file of the game or of a downloaded mod by its `path`, and get its full \
 text. When the user gives the path of a file of the game or of a Workshop mod, call `game_read` \
 directly with that path, not Read or find.
+- `game_list`: the Workshop mods that Workbench downloaded, each with its ID, file count, and \
+size. For the files of one mod with the size of each, call it with the mod name as `source`. For \
+the size of one kind of file, call it directly with a part of their path as `path`: `path` \
+\"scripts/\" gives the size of the scripts of each mod.
 - `workbench_status`: the live state of the user's running Workbench: whether it runs, whether \
 the Handler script of this plugin is loaded, and which mod is open. For how to do something in \
 Workbench, use the wiki Tools.

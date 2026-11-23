@@ -55,6 +55,11 @@ pub(super) struct FileData {
 }
 
 impl FileData {
+    /// The full size in bytes after unpacking.
+    pub(super) fn len(self) -> u32 {
+        self.len
+    }
+
     #[cfg(test)]
     pub(super) fn stored(self) -> u32 {
         self.stored

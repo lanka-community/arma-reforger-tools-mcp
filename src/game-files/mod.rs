@@ -5,6 +5,7 @@
 mod error;
 mod find;
 mod index;
+mod list;
 mod pak;
 mod read;
 mod settings;

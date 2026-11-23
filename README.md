@@ -32,13 +32,14 @@ claude plugin install reforger@reforger-local
 | `wiki_read`        | Returns one Arma Reforger wiki page or Enfusion engine page by its title, or one Section of it.                |
 | `game_find`        | Finds the scripts, Prefabs, and configs inside the `.pak` files of the game and of downloaded Workshop mods.   |
 | `game_read`        | Returns the full text of one file inside the `.pak` files of the game or of a downloaded Workshop mod.         |
+| `game_list`        | Lists the downloaded Workshop mods with their ID, file count, and size, or the files of one mod with their size. |
 | `workbench_status` | Checks the connection to a running Workbench, copies the Handler script into the open mod, and names that mod. |
 | `workbench_launch` | Starts Workbench with one of your mods open, finds it through Steam, and waits until the scripts are compiled. |
 | `workbench_cleanup` | Deletes the Handler script folder from one of your mods, so that Workbench does not pack it. Works when Workbench is closed. |
 | `reference_sync`   | Downloads the Reference mods that your mod repos list, and deletes the ones it downloaded that no list has.    |
 | `guid_generate`    | Makes a new random GUID for the `.gproj` file of a new mod: 16 hex characters in upper case.                   |
 
-`game_find`, `game_read`, the Workbench tools, and `reference_sync` need settings. Their READMEs list them: [`src/game-files/README.md`](src/game-files/README.md), [`src/workbench/README.md`](src/workbench/README.md), and [`src/reference-mods/README.md`](src/reference-mods/README.md).
+`game_find`, `game_read`, `game_list`, the Workbench tools, and `reference_sync` need settings. Their READMEs list them: [`src/game-files/README.md`](src/game-files/README.md), [`src/workbench/README.md`](src/workbench/README.md), and [`src/reference-mods/README.md`](src/reference-mods/README.md).
 
 ## Skills
 
