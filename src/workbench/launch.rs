@@ -21,9 +21,10 @@ use std::time::Instant;
 use tokio::process::Command;
 
 use super::bridge::Bridge;
-use super::error::{ModTool, NoCleanup, NoProject, NoStart};
+use super::error::NoStart;
 use super::install::install;
-use super::project::{Project, listed_mods};
+use super::mod_lookup::{Lookup, choose_mod};
+use super::project::Project;
 use super::settings::{Settings, Starter};
 use super::steam::{find_install, steam_logged_in};
 use super::{Error, Result};
@@ -61,16 +62,20 @@ pub(super) struct StartCommand {
     pub(super) addons: Option<String>,
 }
 
-/// Starts Workbench with the mod named `wanted`, or with the one mod of the project list.
-pub(super) async fn launch(bridge: &Bridge, wanted: Option<&str>) -> Result<Launched> {
+/// Starts Workbench with the mod named `wanted`, or with the one mod of the project list. A
+/// `wanted` that names no mod gives the hint for Claude, and nothing starts.
+pub(super) async fn launch(bridge: &Bridge, wanted: Option<&str>) -> Result<Lookup<Launched>> {
     match bridge.scripts_compiled().await {
         Err(Error::NotRunning { .. }) => {}
-        Ok(_) => return Ok(Launched::AlreadyRunning),
+        Ok(_) => return Ok(Ok(Launched::AlreadyRunning)),
         Err(error) => return Err(error),
     }
     let settings = bridge.settings();
     let install_folders = find_install(settings.steam.as_deref()).await?;
-    let project = choose(mods(bridge)?, wanted)?;
+    let project = match choose_mod(bridge, wanted)? {
+        Ok(project) => project,
+        Err(wrong) => return Ok(Err(wrong)),
+    };
     let steam = ensure_steam(settings, &install_folders.steam).await?;
     if let Some(project) = &project {
         install(&project.folder)?;
@@ -88,7 +93,7 @@ pub(super) async fn launch(bridge: &Bridge, wanted: Option<&str>) -> Result<Laun
         .await
         .map_err(|err| NoStart::StartFailed { err })?;
     let Some(project) = project else {
-        return Ok(Launched::StartedLauncher { steam });
+        return Ok(Ok(Launched::StartedLauncher { steam }));
     };
     wait_for_scripts(bridge).await?;
     // A mod whose dependency Workbench does not find does not load, and Workbench opens only the
@@ -100,23 +105,7 @@ pub(super) async fn launch(bridge: &Bridge, wanted: Option<&str>) -> Result<Laun
         }
         .into());
     }
-    Ok(Launched::Started { project, steam })
-}
-
-/// The mod for `workbench_cleanup`, named `wanted` in the project list: its ID or its folder
-/// name, in any case. An unknown name gives the error of `workbench_launch`, with
-/// `workbench_cleanup` as the Tool to call again. The Tool deletes files, so it never picks a mod
-/// itself: an empty name is an error, also when the project list has one mod.
-pub(super) fn find_mod(bridge: &Bridge, wanted: &str) -> Result<Project> {
-    let mods = mods(bridge)?;
-    let wanted = wanted.trim();
-    if wanted.is_empty() {
-        return Err(NoCleanup::ModRequired {
-            names: names(&mods),
-        }
-        .into());
-    }
-    named(mods, wanted, ModTool::Cleanup)
+    Ok(Ok(Launched::Started { project, steam }))
 }
 
 /// The Windows of a test: it fakes the start of Workbench and of Steam, and the Steam login.
@@ -135,65 +124,6 @@ pub(super) struct FakeWindows {
 }
 
 // region:    --- Support
-
-/// The mods of the project list. A Workbench that never ran has no Documents folder and no
-/// project list, so it has no mods.
-fn mods(bridge: &Bridge) -> Result<Vec<Project>> {
-    let documents = match bridge.settings().documents() {
-        Ok(documents) => documents,
-        Err(Error::DocumentsNotFound) => return Ok(Vec::new()),
-        Err(error) => return Err(error),
-    };
-    match listed_mods(&documents) {
-        Err(Error::NoProject {
-            reason: NoProject::NoList { .. },
-        }) => Ok(Vec::new()),
-        listed => listed,
-    }
-}
-
-/// The mod named `wanted` (its ID or its folder name, in any case), or the one mod when Claude
-/// named none. `None`: no mod, so Workbench starts on its launcher.
-fn choose(mods: Vec<Project>, wanted: Option<&str>) -> Result<Option<Project>> {
-    let Some(wanted) = wanted.map(str::trim).filter(|wanted| !wanted.is_empty()) else {
-        return match mods.len() {
-            0 => Ok(None),
-            1 => Ok(mods.into_iter().next()),
-            _ => Err(NoStart::ChooseMod {
-                names: names(&mods),
-            }
-            .into()),
-        };
-    };
-    named(mods, wanted, ModTool::Launch).map(Some)
-}
-
-/// The mod named `wanted`: its ID or its folder name, in any case. An unknown name gives an
-/// error that names the mods and tells Claude to call `tool` again.
-fn named(mods: Vec<Project>, wanted: &str, tool: ModTool) -> Result<Project> {
-    let names = names(&mods);
-    let is_wanted = |project: &Project| {
-        project.id.eq_ignore_ascii_case(wanted)
-            || project
-                .folder
-                .file_name()
-                .and_then(|name| name.to_str())
-                .is_some_and(|name| name.eq_ignore_ascii_case(wanted))
-    };
-    mods.into_iter().find(is_wanted).ok_or_else(|| {
-        NoStart::UnknownMod {
-            tool,
-            wanted: wanted.to_owned(),
-            names,
-        }
-        .into()
-    })
-}
-
-/// The IDs of `mods`, for an answer that names them.
-fn names(mods: &[Project]) -> Vec<String> {
-    mods.iter().map(|project| project.id.clone()).collect()
-}
 
 /// Starts Steam when no user is logged in, and waits until a user is. True when it started
 /// Steam. On Workbench 1.6 a logged-in user came 8 seconds after the start.
