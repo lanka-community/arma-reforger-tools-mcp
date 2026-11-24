@@ -7,15 +7,25 @@ use super::settings::GAME_SETTING;
 
 pub type Result<T> = core::result::Result<T, Error>;
 
+/// The game folder that Steam names, and the command of the setup that writes it.
+#[derive(Debug)]
+pub struct FoundGame {
+    pub folder: PathBuf,
+    pub setup: String,
+}
+
 #[derive(Debug)]
 pub enum Error {
     /// The setting that names the game folder is missing.
-    GamePathNotSet,
+    GamePathNotSet {
+        found: Option<FoundGame>,
+    },
 
     /// The game folder has no `addons` folder with .pak files.
     NoGamePaks {
         value: String,
         folder: PathBuf,
+        found: Option<FoundGame>,
     },
 
     /// Claude cancelled the call while the file lists were read.
@@ -76,19 +86,34 @@ pub enum Error {
 impl fmt::Display for Error {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::GamePathNotSet => write!(
+            Self::GamePathNotSet { found: None } => write!(
                 f,
                 "{GAME_SETTING} is not set. Set it to the game folder, the folder that holds \
                  ArmaReforger.exe, for example \"D:\\SteamLibrary\\steamapps\\common\\Arma Reforger\" \
                  or \"/mnt/d/SteamLibrary/steamapps/common/Arma Reforger\". Then restart Claude Code."
             ),
-            Self::NoGamePaks { value, folder } => write!(
-                f,
-                "{GAME_SETTING} is \"{value}\", but {} has no addons folder with .pak files. Set \
-                 {GAME_SETTING} to the game folder, the folder that holds ArmaReforger.exe and \
-                 addons. Then restart Claude Code.",
-                folder.display()
-            ),
+            Self::GamePathNotSet { found: Some(found) } => {
+                write!(f, "{GAME_SETTING} is not set. {found}")
+            }
+            Self::NoGamePaks {
+                value,
+                folder,
+                found,
+            } => {
+                write!(
+                    f,
+                    "{GAME_SETTING} is \"{value}\", but {} has no addons folder with .pak files. ",
+                    folder.display()
+                )?;
+                match found {
+                    Some(found) => write!(f, "{found}"),
+                    None => write!(
+                        f,
+                        "Set {GAME_SETTING} to the game folder, the folder that holds \
+                         ArmaReforger.exe and addons. Then restart Claude Code."
+                    ),
+                }
+            }
             Self::Cancelled => write!(f, "The call was cancelled before the file lists were read."),
             Self::ReaderStopped => write!(
                 f,
@@ -143,11 +168,23 @@ impl fmt::Display for Error {
     }
 }
 
+impl fmt::Display for FoundGame {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "Found the game at {}. Set {GAME_SETTING} to it, or ask the user to run the setup \
+             in a terminal: {}. Then restart Claude Code.",
+            self.folder.display(),
+            self.setup
+        )
+    }
+}
+
 impl std::error::Error for Error {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Io(err) | Self::Unpack(err) => Some(err),
-            Self::GamePathNotSet
+            Self::GamePathNotSet { .. }
             | Self::NoGamePaks { .. }
             | Self::Cancelled
             | Self::ReaderStopped

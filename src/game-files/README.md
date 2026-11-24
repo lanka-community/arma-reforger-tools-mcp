@@ -27,11 +27,23 @@ Finds and opens Game files: the scripts, prefabs, configs, and other files insid
 
 ## Settings
 
-Set them in the `env` of Claude Code's `settings.json`. A path works in Windows form (`D:\Games\...`) and in WSL form (`/mnt/d/Games/...`). Restart Claude Code after a change.
+Set them in the `env` of Claude Code's `settings.json`, or let the setup write them (see "Setup"). A path works in Windows form (`D:\Games\...`) and in WSL form (`/mnt/d/Games/...`). Restart Claude Code after a change.
 
-- `REFORGER_GAME_PATH`: the game folder, the folder that holds `ArmaReforger.exe` and `addons`. Without it, or when it has no `addons` folder with .pak files, `game_find`, `game_read`, and `game_list` give an error that names the setting.
+- `REFORGER_GAME_PATH`: the game folder, the folder that holds `ArmaReforger.exe` and `addons`. Without it, or when it has no `addons` folder with .pak files, `game_find`, `game_read`, and `game_list` give an error that names the setting. When Steam names a game folder, the error names it too, with the command of the setup: `Found the game at /mnt/d/Games/steamapps/common/Arma Reforger. Set REFORGER_GAME_PATH to it, or ask the user to run the setup in a terminal: "<plugin folder>/target/release/reforger" setup.` The Tools never use the found folder by themselves (ADR 0007).
 - `REFORGER_WORKBENCH_DOCUMENTS_PATH`: the Workbench folder in Documents, for example `C:\Users\<you>\Documents\My Games\ArmaReforgerWorkbench`. Workbench downloads Workshop mods to its `addons` folder. Without it, `game-files` finds the folder the same way as `workbench` (`src/workbench_documents.rs`).
 - `REFORGER_WORKBENCH_PROFILE_PATH`: a second folder that holds `addons` with Workshop mods, for example `D:\DownloadedMods`, the folder where the game downloads mods. Without it and without a Documents folder, `game_find`, `game_read`, and `game_list` use the game only, and `game_find` says so.
+
+## Setup
+
+`reforger setup` finds the two folders through Steam and writes them to the settings. Run it in a terminal, in the plugin folder: `target/release/reforger setup`. In WSL, run it in WSL, so that it writes the paths in WSL form (ADR 0006).
+
+1. It finds the Steam folder: first the folder that the Windows registry names (`reg.exe query HKCU\Software\Valve\Steam /v SteamPath`, which works from WSL too), then the default folder `C:\Program Files (x86)\Steam`. The first one with `steamapps/libraryfolders.vdf` counts. On the test machine, Steam is in `D:\Games`.
+2. `REFORGER_GAME_PATH`: `libraryfolders.vdf` names the library of Arma Reforger (app 1874880), and `steamapps/appmanifest_1874880.acf` in that library names its folder under `steamapps/common`.
+3. `REFORGER_WORKBENCH_PROFILE_PATH`: `userdata/<user>/config/localconfig.vdf` holds the launch options of the game. The folder of `-addonDownloadDir "D:\DownloadedMods"` holds `addons` with the mods that the game downloads. When Steam has more than one user, the file that changed last counts first. Without the option, the setup uses the Workbench folder in Documents (`C:\Users\<you>\Documents\My Games\ArmaReforgerWorkbench`, or `REFORGER_WORKBENCH_DOCUMENTS_PATH`).
+4. It shows each file it read and what it found, and the changes to the `env` of `~/.claude/settings.json` (or `settings.json` in `CLAUDE_CONFIG_DIR`). It writes only after the answer `y`. Every other key and the order of the keys stay as they were. When `settings.json` is a link, it writes the file behind the link. When the file is not valid JSON, it writes nothing and says so.
+5. When it finds nothing, it lists the files it read and says how to set the settings by hand.
+
+`src/steam/` holds the search, and `src/setup/` the command. A damaged Steam file gives a line with the file name and the line of the damage, never a crash. Restart Claude Code after the setup.
 
 ## Data
 

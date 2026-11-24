@@ -8,11 +8,14 @@ use std::time::SystemTime;
 
 use tokio_util::sync::CancellationToken;
 
+use super::error::FoundGame;
 use super::pak::{FileData, PakFile, list_files, read_file};
 use super::settings::{PROFILE_SETTING, Settings};
 use super::{Error, Result};
 use crate::host_path::host_path;
 use crate::mod_folder::ModFolder;
+use crate::setup;
+use crate::steam::find_game;
 use crate::workbench_documents::DOCUMENTS_SETTING;
 
 /// The name of the first source: the game itself.
@@ -121,13 +124,19 @@ impl GameFile {
 /// folder is not set or has no .pak files. A damaged .pak file or a missing mods folder becomes a
 /// note. It checks `cancel` before each .pak file.
 pub(super) fn build(settings: &Settings, cancel: &CancellationToken) -> Result<Index> {
-    let raw_game = settings.game.as_deref().ok_or(Error::GamePathNotSet)?;
+    let raw_game = settings
+        .game
+        .as_deref()
+        .ok_or_else(|| Error::GamePathNotSet {
+            found: found_game(settings, None),
+        })?;
     let game_folder = host_path(raw_game);
     let mut game_paks = Vec::new();
     collect_paks(&game_folder.join("addons"), 2, &mut game_paks);
     if game_paks.is_empty() {
         return Err(Error::NoGamePaks {
             value: raw_game.to_owned(),
+            found: found_game(settings, Some(&game_folder)),
             folder: game_folder,
         });
     }
@@ -287,6 +296,20 @@ impl Index {
 }
 
 // region:    --- Support
+
+/// The game folder that Steam names, for the error of a missing or wrong setting. `None` when
+/// the settings say not to look, Steam names no game, or Steam names the folder `set`, which
+/// has no .pak files.
+fn found_game(settings: &Settings, set: Option<&Path>) -> Option<FoundGame> {
+    let folder = find_game(settings.steam.as_ref()?)?;
+    if set.is_some_and(|set| set == folder) {
+        return None;
+    }
+    Some(FoundGame {
+        folder,
+        setup: setup::command(),
+    })
+}
 
 fn read_pak(pak: &Path) -> Result<Vec<PakFile>> {
     let mut file = File::open(pak)?;
